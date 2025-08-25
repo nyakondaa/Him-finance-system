@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>QZ Tray Certificate Test</title>
+    <script src="qz-tray.js"></script>
+</head>
+<body>
+<h2>QZ Tray Certificate Test</h2>
+<button onclick="testQZ()">Connect & Print Test</button>
+
+<pre id="output"></pre>
+
+<script>
+    const log = (msg) => {
+        const out = document.getElementById("output");
+        out.textContent += msg + "\n";
+    };
+
+    // Certificate promise
+    window.qz.security.setCertificatePromise(() => {
+        log("📄 Requesting certificate...");
+        return fetch("http://localhost:5000/qz/certificate", {
+            cache: 'no-store',
+            headers: { 'Content-Type': 'text/plain' }
+        })
+            .then(res => {
+                if (!res.ok) throw new Error("❌ Certificate fetch failed");
+                return res.text();
+            })
+            .then(cert => {
+                log("✅ Certificate received");
+                return cert;
+            })
+            .catch(err => {
+                log("❌ Error fetching certificate: " + err);
+                throw err;
+            });
+    });
+
+    // Signature promise
+    window.qz.security.setSignaturePromise(toSign => {
+        log("✍️ Requesting signature...");
+        return fetch("http://localhost:5000/qz/sign", {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: toSign })
+        })
+            .then(res => {
+                if (!res.ok) throw new Error("❌ Signature fetch failed");
+                return res.text();
+            })
+            .then(signature => {
+                log("✅ Signature received");
+                return signature;
+            })
+            .catch(err => {
+                log("❌ Error fetching signature: " + err);
+                throw err;
+            });
+    });
+
+    async function testQZ() {
+        try {
+            log("🔌 Connecting to QZ Tray...");
+            await qz.websocket.connect();
+            log("✅ Connected to QZ Tray");
+
+            const config = qz.configs.create("PDFCreator");
+            const data = [{
+                type: 'html',
+                format: 'plain',
+                data: '<h1>Test print from QZ Tray</h1><p>This was sent to PDFCreator.</p>'
+            }];
+
+            log("🖨️ Sending print job to PDFCreator...");
+            await qz.print(config, data);
+            log("✅ Print job sent!");
+
+        } catch (e) {
+            log("❌ ERROR: " + (e.message || e));
+        } finally {
+            if (qz.websocket.isActive()) {
+                await qz.websocket.disconnect();
+                log("🔌 Disconnected");
+            }
+        }
+    }
+</script>
+</body>
+</html>

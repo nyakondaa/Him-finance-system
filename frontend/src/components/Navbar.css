@@ -1,0 +1,14 @@
+/* src/components/Navbar.css */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    background-color: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #4a5568; /* Tailwind's gray-600 */
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #718096; /* Tailwind's gray-500 */
+}

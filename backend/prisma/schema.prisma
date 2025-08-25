@@ -1,0 +1,1297 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  displayName String   @map("display_name")
+  description String?
+  permissions Json
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                        Int                         @id @default(autoincrement())
+  username                  String                      @unique
+  password_hash             String                      @map("password_hash")
+  firstName                 String?                     @map("first_name")
+  lastName                  String?                     @map("last_name")
+  email                     String?                     @unique
+  phoneNumber               String?                     @map("phone_number")
+  roleId                    Int                         @map("role_id")
+  role                      Role                        @relation(fields: [roleId], references: [id])
+  branchCode                String                      @map("branch_code")
+  branch                    Branch                      @relation(fields: [branchCode], references: [code])
+  locked                    Boolean                     @default(false)
+  attempts                  Int                         @default(0)
+  lastLogin                 DateTime?                   @map("last_login") @db.Timestamptz(6)
+  isActive                  Boolean                     @default(true) @map("is_active")
+  createdAt                 DateTime                    @default(now()) @map("created_at")
+  updatedAt                 DateTime                    @updatedAt @map("updated_at")
+  createdBy                 String?                     @map("created_by")
+
+  refreshTokens             RefreshToken[]
+  generalTransactions       Transaction[]
+  processedContributions    MemberContribution[]
+  processedRefunds          Refund[]
+  loginHistory              LoginHistory[]
+  createdContributionPlans  ContributionPlan[]
+  assignedProjectTasks      ProjectTask[]
+  createdReminders          PaymentReminder[]
+  processedBalanceAdjustments BalanceAdjustment[]
+  expenditureApprovals      Expenditure[]               @relation("ExpenditureApprovals")
+  expenditureRequests       Expenditure[]               @relation("ExpenditureRequests")
+  expenditureProcessing     Expenditure[]               @relation("ExpenditureProcessing")
+  uploadedReceipts          ExpenseReceipt[]
+  verifiedReceipts          ExpenseReceipt[]            @relation("ReceiptVerification")
+  supplierEvaluations       SupplierEvaluation[]
+  signedContracts           Contract[]
+  assetAssignments          Asset[]
+  approvalHistory           ApprovalHistory[]
+  uploadedProjectDocs       ProjectDocument[]
+  exchangeRatesCreated      ExchangeRate[]
+  currencyConversions       CurrencyConversionHistory[]
+  supplierBans              Supplier[]                  @relation("SupplierBans")
+  supplierStatusChanges     SupplierStatusHistory[]
+  passwordResetTokens       PasswordResetToken[]
+  auditLogs                 AuditLog[]
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model LoginHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  success   Boolean
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("login_history")
+}
+
+model Branch {
+  code             String            @id
+  name             String            @unique
+  address          String?
+  phoneNumber      String?           @map("phone_number")
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  users            User[]
+  revenueHeads     RevenueHead[]
+  expenditureHeads ExpenditureHead[]
+  transactions     Transaction[]
+  members          Member[]
+  projects         Project[]
+  expenditures     Expenditure[]
+  assets           Asset[]
+
+  @@map("branches")
+}
+
+model Member {
+  id                    Int                     @id @default(autoincrement())
+  memberNumber          String                  @unique @map("member_number")
+  firstName             String                  @map("first_name")
+  lastName              String                  @map("last_name")
+  dateOfBirth           DateTime?               @map("date_of_birth")
+  ageCategory           AgeCategory             @default(ADULT) @map("age_category")
+  phoneNumber           String?                 @map("phone_number")
+  email                 String?
+  address               String?
+  branchCode            String                  @map("branch_code")
+  branch                Branch                  @relation(fields: [branchCode], references: [code])
+  isActive              Boolean                 @default(true) @map("is_active")
+  joinedDate            DateTime                @default(now()) @map("joined_date")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+
+  contributions         MemberContribution[]
+  contributionPlans     ContributionPlan[]
+  memberProjects        MemberProject[]
+  generalTransactions   Transaction[]
+  memberBalances        MemberBalance[]
+  paymentReminders      PaymentReminder[]
+  paymentPatternHistory PaymentPatternHistory[]
+  reimbursements        Expenditure[]
+
+  @@map("members")
+}
+
+enum AgeCategory {
+  ADULT
+  YOUTH
+  CHILD
+  ELDERLY
+}
+
+model ContributionPlan {
+  id                 Int                @id @default(autoincrement())
+  memberId           Int                @map("member_id")
+  member             Member             @relation(fields: [memberId], references: [id])
+  projectId          Int?               @map("project_id")
+  project            Project?           @relation(fields: [projectId], references: [id])
+  revenueHeadCode    String?            @map("revenue_head_code")
+  revenueHead        RevenueHead?       @relation(fields: [revenueHeadCode], references: [code])
+  planName           String             @map("plan_name")
+  paymentPattern     PaymentPattern     @map("payment_pattern")
+  frequency          PaymentFrequency   @default(MONTHLY)
+  amount             Decimal            @db.Decimal(120, 2)
+  currencyCode       String             @map("currency_code")
+  currency           Currency           @relation(fields: [currencyCode], references: [code])
+  startDate          DateTime           @map("start_date")
+  endDate            DateTime?          @map("end_date")
+  nextPaymentDate    DateTime?          @map("next_payment_date")
+  reminderDays       Int                @default(7) @map("reminder_days")
+  autoRenew          Boolean            @default(false) @map("auto_renew")
+  isActive           Boolean            @default(true) @map("is_active")
+  createdBy          Int                @map("created_by")
+  creator            User               @relation(fields: [createdBy], references: [id])
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  paymentReminders PaymentReminder[]
+
+  @@map("contribution_plans")
+}
+
+enum PaymentPattern {
+  RECURRING
+  FREQUENT
+  OCCASIONAL
+  ONE_TIME
+  SEASONAL
+  PLEDGE_BASED
+}
+
+enum PaymentFrequency {
+  DAILY
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  BI_MONTHLY
+  QUARTERLY
+  SEMI_ANNUALLY
+  ANNUALLY
+  CUSTOM
+}
+
+model PaymentReminder {
+  id                 Int                  @id @default(autoincrement())
+  memberId           Int                  @map("member_id")
+  member             Member               @relation(fields: [memberId], references: [id])
+  contributionPlanId Int?                 @map("contribution_plan_id")
+  contributionPlan   ContributionPlan?    @relation(fields: [contributionPlanId], references: [id])
+  reminderType       ReminderType         @map("reminder_type")
+  dueDate            DateTime             @map("due_date")
+  amount             Decimal              @db.Decimal(120, 2)
+  currencyCode       String               @map("currency_code")
+  currency           Currency             @relation(fields: [currencyCode], references: [code])
+  message            String?
+  sentAt             DateTime?            @map("sent_at")
+  method             NotificationMethod   @default(EMAIL)
+  status             ReminderStatus       @default(PENDING)
+  createdBy          Int                  @map("created_by")
+  creator            User                 @relation(fields: [createdBy], references: [id])
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  @@map("payment_reminders")
+}
+
+enum ReminderType {
+  CONTRIBUTION_DUE
+  OVERDUE_PAYMENT
+  UPCOMING_PAYMENT
+  PLEDGE_REMINDER
+  BALANCE_LOW
+}
+
+enum NotificationMethod {
+  EMAIL
+  SMS
+  PHONE_CALL
+  IN_PERSON
+  PUSH_NOTIFICATION
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+model MemberBalance {
+  id           Int           @id @default(autoincrement())
+  memberId     Int           @map("member_id")
+  member       Member        @relation(fields: [memberId], references: [id])
+  projectId    Int?          @map("project_id")
+  project      Project?      @relation(fields: [projectId], references: [id])
+  balanceType  BalanceType   @map("balance_type")
+  balance      Decimal       @db.Decimal(120, 2)
+  creditLimit  Decimal?      @db.Decimal(120, 2) @map("credit_limit")
+  currencyCode String        @map("currency_code")
+  currency     Currency      @relation(fields: [currencyCode], references: [code])
+  lastUpdated  DateTime      @updatedAt @map("last_updated")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  adjustments BalanceAdjustment[]
+
+  @@unique([memberId, projectId, balanceType])
+  @@map("member_balances")
+}
+
+enum BalanceType {
+  CREDIT
+  DEBIT
+  PLEDGE
+  PREPAID
+}
+
+model BalanceAdjustment {
+  id              Int           @id @default(autoincrement())
+  memberBalanceId Int           @map("member_balance_id")
+  memberBalance   MemberBalance @relation(fields: [memberBalanceId], references: [id])
+  adjustmentType  AdjustmentType @map("adjustment_type")
+  amount          Decimal       @db.Decimal(120, 2)
+  reason          String
+  referenceNumber String?       @map("reference_number")
+  processedBy     Int           @map("processed_by")
+  processor       User          @relation(fields: [processedBy], references: [id])
+  processedAt     DateTime      @default(now()) @map("processed_at")
+  notes           String?
+
+  @@map("balance_adjustments")
+}
+
+enum AdjustmentType {
+  REFUND
+  CREDIT
+  DEBIT
+  TRANSFER
+  CORRECTION
+  WRITE_OFF
+}
+
+model PaymentPatternHistory {
+  id              Int            @id @default(autoincrement())
+  memberId        Int            @map("member_id")
+  member          Member         @relation(fields: [memberId], references: [id])
+  previousPattern PaymentPattern @map("previous_pattern")
+  newPattern      PaymentPattern @map("new_pattern")
+  analysisDate    DateTime       @map("analysis_date")
+  confidence      Float          @default(0.0)
+  reasonCode      String?        @map("reason_code")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  @@map("payment_pattern_history")
+}
+
+model RevenueHead {
+  code                String               @id
+  name                String
+  description         String?
+  branchCode          String               @map("branch_code")
+  branch              Branch               @relation(fields: [branchCode], references: [code])
+  isActive            Boolean              @default(true) @map("is_active")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  transactions        Transaction[]
+  contributionPlans   ContributionPlan[]
+
+  @@unique([name, branchCode])
+  @@map("revenue_heads")
+}
+
+model ExpenditureHead {
+  code             String              @id
+  name             String
+  description      String?
+  category         ExpenditureCategory @default(OPERATIONAL)
+  branchCode       String              @map("branch_code")
+  branch           Branch              @relation(fields: [branchCode], references: [code])
+  budgetLimit      Decimal?            @db.Decimal(120, 2) @map("budget_limit")
+  approvalRequired Boolean             @default(false) @map("approval_required")
+  isActive         Boolean             @default(true) @map("is_active")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  expenditures Expenditure[]
+  budgetLines  BudgetLine[]
+
+  @@unique([name, branchCode])
+  @@map("expenditure_heads")
+}
+
+model Project {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  description        String?
+  targetAmount       Decimal              @db.Decimal(120, 2) @map("target_amount")
+  currencyCode       String               @map("currency_code")
+  currency           Currency             @relation(fields: [currencyCode], references: [code])
+  branchCode         String               @map("branch_code")
+  branch             Branch               @relation(fields: [branchCode], references: [code])
+  startDate          DateTime             @map("start_date")
+  endDate            DateTime?            @map("end_date")
+  actualStartDate    DateTime?            @map("actual_start_date")
+  actualEndDate      DateTime?            @map("actual_end_date")
+  status             ProjectStatus        @default(PLANNING)
+  priority           ProjectPriority      @default(MEDIUM)
+  progress           Float                @default(0.0)
+  isActive           Boolean              @default(true) @map("is_active")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  memberProjects       MemberProject[]
+  contributions        MemberContribution[]
+  contributionPlans    ContributionPlan[]
+  memberBalances       MemberBalance[]
+  milestones           ProjectMilestone[]
+  tasks                ProjectTask[]
+  updates              ProjectUpdate[]
+  documents            ProjectDocument[]
+  budgetAllocations    BudgetAllocation[]
+  expenditures         Expenditure[]
+  contracts            Contract[]
+  budgetLines          BudgetLine[]
+
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ProjectMilestone {
+  id                 Int                @id @default(autoincrement())
+  projectId          Int                @map("project_id")
+  project            Project            @relation(fields: [projectId], references: [id])
+  name               String
+  description        String?
+  targetDate         DateTime           @map("target_date")
+  actualDate         DateTime?          @map("actual_date")
+  budgetAllocation   Decimal?           @db.Decimal(120, 2) @map("budget_allocation")
+  actualCost         Decimal?           @db.Decimal(120, 2) @map("actual_cost")
+  status             MilestoneStatus    @default(PENDING)
+  priority           Int                @default(1)
+  progress           Float              @default(0.0)
+  dependencies       Json?
+  deliverables       String?
+  completionCriteria String?            @map("completion_criteria")
+  notes              String?
+  completedBy        Int?               @map("completed_by")
+  completedAt        DateTime?          @map("completed_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  tasks ProjectTask[]
+  expenditures Expenditure[]
+
+  @@map("project_milestones")
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+  CANCELLED
+  BLOCKED
+}
+
+model ProjectTask {
+  id             Int              @id @default(autoincrement())
+  projectId      Int              @map("project_id")
+  project        Project          @relation(fields: [projectId], references: [id])
+  milestoneId    Int?             @map("milestone_id")
+  milestone      ProjectMilestone? @relation(fields: [milestoneId], references: [id])
+  title          String
+  description    String?
+  assignedTo     Int?             @map("assigned_to")
+  assignee       User?            @relation(fields: [assignedTo], references: [id])
+  dueDate        DateTime?        @map("due_date")
+  status         TaskStatus       @default(PENDING)
+  priority       TaskPriority     @default(MEDIUM)
+  estimatedHours Int?             @map("estimated_hours")
+  actualHours    Int?             @map("actual_hours")
+  completedAt    DateTime?        @map("completed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@map("project_tasks")
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model ProjectUpdate {
+  id         Int        @id @default(autoincrement())
+  projectId  Int        @map("project_id")
+  project    Project    @relation(fields: [projectId], references: [id])
+  title      String
+  content    String
+  updateType UpdateType @map("update_type")
+  createdBy  String     @map("created_by")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@map("project_updates")
+}
+
+enum UpdateType {
+  PROGRESS
+  MILESTONE
+  ISSUE
+  GENERAL
+  FINANCIAL
+}
+
+model ProjectDocument {
+  id              Int               @id @default(autoincrement())
+  projectId       Int               @map("project_id")
+  project         Project           @relation(fields: [projectId], references: [id])
+  fileName        String            @map("file_name")
+  originalName    String            @map("original_name")
+  filePath        String            @map("file_path")
+  fileSize        Int               @map("file_size")
+  mimeType        String            @map("mime_type")
+  fileType        DocumentType      @map("file_type")
+  category        DocumentCategory  @default(GENERAL)
+  description     String?
+  tags            String[]
+  isPublic        Boolean           @default(false) @map("is_public")
+  downloadCount   Int               @default(0) @map("download_count")
+  thumbnailPath   String?           @map("thumbnail_path")
+  duration        Int?
+  dimensions      String?
+  checksum        String?
+  uploadedBy      Int               @map("uploaded_by")
+  uploader        User              @relation(fields: [uploadedBy], references: [id])
+  uploadedAt      DateTime          @default(now()) @map("uploaded_at")
+  lastAccessed    DateTime?         @map("last_accessed")
+  versionNumber   Int               @default(1) @map("version_number")
+  parentDocId     Int?              @map("parent_doc_id")
+  parentDoc       ProjectDocument?  @relation("DocumentVersions", fields: [parentDocId], references: [id])
+  versions        ProjectDocument[] @relation("DocumentVersions")
+
+  @@map("project_documents")
+}
+
+enum DocumentType {
+  DOCUMENT
+  SPREADSHEET
+  PRESENTATION
+  IMAGE
+  VIDEO
+  AUDIO
+  ARCHIVE
+  CODE
+  OTHER
+}
+
+enum DocumentCategory {
+  GENERAL
+  CONTRACTS
+  PERMITS
+  ARCHITECTURAL_PLANS
+  BUDGET_DOCUMENTS
+  PROGRESS_REPORTS
+  MEETING_MINUTES
+  CORRESPONDENCE
+  TECHNICAL_SPECS
+  PHOTOS
+  VIDEOS
+  AUDIO_RECORDINGS
+  PRESENTATIONS
+  MARKETING_MATERIALS
+}
+
+model Currency {
+  code               String                  @id
+  name               String                  @unique
+  symbol             String?
+  isActive           Boolean                 @default(true) @map("is_active")
+  isBaseCurrency     Boolean                 @default(false) @map("is_base_currency")
+  decimalPlaces      Int                     @default(2) @map("decimal_places")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  baseRates          ExchangeRate[]          @relation("BaseCurrency")
+  targetRates        ExchangeRate[]          @relation("TargetCurrency")
+  exchangeRateHistory ExchangeRateHistory[]   @relation("BaseExchangeRate")
+  targetExchangeRateHistory ExchangeRateHistory[] @relation("TargetExchangeRate")
+  currencyConversionHistory CurrencyConversionHistory[]
+  allowedPaymentMethods CurrencyPaymentMethod[]
+  transactions       Transaction[]
+  refunds            Refund[]
+  projects           Project[]
+  memberProjects     MemberProject[]
+  memberContributions MemberContribution[]
+  contributionPlans  ContributionPlan[]
+  memberBalances     MemberBalance[]
+  paymentReminders   PaymentReminder[]
+  budgetAllocations  BudgetAllocation[]
+  expenditures       Expenditure[]
+  contracts          Contract[]
+  assets             Asset[]
+  maintenanceRecords MaintenanceRecord[]
+  budgetPeriods      BudgetPeriod[]
+
+  @@map("currencies")
+  currencyConversionHistoryAsOriginal CurrencyConversionHistory[] @relation("OriginalCurrency")
+  currencyConversionHistoryAsConverted CurrencyConversionHistory[] @relation("ConvertedCurrency")
+}
+
+model ExchangeRate {
+  id                 Int      @id @default(autoincrement())
+  baseCurrencyCode   String   @map("base_currency_code")
+  baseCurrency       Currency @relation("BaseCurrency", fields: [baseCurrencyCode], references: [code])
+  targetCurrencyCode String   @map("target_currency_code")
+  targetCurrency     Currency @relation("TargetCurrency", fields: [targetCurrencyCode], references: [code])
+  rate               Decimal  @db.Decimal(20, 10)
+  inverseRate        Decimal? @db.Decimal(20, 10) @map("inverse_rate")
+  effectiveDate      DateTime @map("effective_date")
+  expiryDate         DateTime? @map("expiry_date")
+  source             RateSource @default(MANUAL)
+  sourceReference    String?  @map("source_reference")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdBy          Int?     @map("created_by")
+  creator            User?    @relation(fields: [createdBy], references: [id])
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  historicalTransactions CurrencyConversionHistory[]
+
+  @@unique([baseCurrencyCode, targetCurrencyCode, effectiveDate])
+  @@map("exchange_rates")
+}
+
+enum RateSource {
+  MANUAL
+  BANK_API
+  CENTRAL_BANK
+  FOREX_API
+  CRYPTO_API
+  INTERNAL_CALC
+}
+
+model CurrencyConversionHistory {
+  id                 Int          @id @default(autoincrement())
+  exchangeRateId     Int          @map("exchange_rate_id")
+  exchangeRate       ExchangeRate @relation(fields: [exchangeRateId], references: [id])
+  originalAmount     Decimal      @db.Decimal(120, 2) @map("original_amount")
+
+  // Corrected: Use a scalar field for the foreign key
+  originalCurrencyCode String       @map("original_currency_code")
+  originalCurrency   Currency     @relation("OriginalCurrency", fields: [originalCurrencyCode], references: [code])
+
+  convertedAmount    Decimal      @db.Decimal(120, 2) @map("converted_amount")
+
+  // Corrected: Use a scalar field for the foreign key
+  convertedCurrencyCode String       @map("converted_currency_code")
+  convertedCurrency  Currency     @relation("ConvertedCurrency", fields: [convertedCurrencyCode], references: [code])
+
+  conversionRate     Decimal      @db.Decimal(20, 10) @map("conversion_rate")
+  transactionType    String       @map("transaction_type")
+  transactionId      Int          @map("transaction_id")
+  convertedAt        DateTime     @default(now()) @map("converted_at")
+  convertedBy        Int          @map("converted_by")
+  converter          User         @relation(fields: [convertedBy], references: [id])
+
+  @@map("currency_conversion_history")
+  Currency Currency[]
+}
+
+model ExchangeRateHistory {
+  id                 Int      @id @default(autoincrement())
+  baseCurrencyCode   String   @map("base_currency_code")
+  baseCurrency       Currency @relation("BaseExchangeRate", fields: [baseCurrencyCode], references: [code])
+  targetCurrencyCode String   @map("target_currency_code")
+  targetCurrency     Currency @relation("TargetExchangeRate", fields: [targetCurrencyCode], references: [code])
+  rate               Decimal  @db.Decimal(20, 10)
+  date               DateTime
+  highRate           Decimal? @db.Decimal(20, 10) @map("high_rate")
+  lowRate            Decimal? @db.Decimal(20, 10) @map("low_rate")
+  openRate           Decimal? @db.Decimal(20, 10) @map("open_rate")
+  closeRate          Decimal? @db.Decimal(20, 10) @map("close_rate")
+  volume             Decimal? @db.Decimal(20, 10)
+  source             RateSource @default(FOREX_API)
+  sourceReference    String?  @map("source_reference")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([baseCurrencyCode, targetCurrencyCode, date])
+  @@map("exchange_rate_history")
+}
+
+model BudgetAllocation {
+  id              Int      @id @default(autoincrement())
+  projectId       Int      @map("project_id")
+  project         Project  @relation(fields: [projectId], references: [id])
+  category        String
+  allocatedAmount Decimal  @db.Decimal(120, 2) @map("allocated_amount")
+  spentAmount     Decimal  @default(0) @db.Decimal(120, 2) @map("spent_amount")
+  currencyCode    String   @map("currency_code")
+  currency        Currency @relation(fields: [currencyCode], references: [code])
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("budget_allocations")
+}
+
+model MemberProject {
+  id             Int      @id @default(autoincrement())
+  memberId       Int      @map("member_id")
+  member         Member   @relation(fields: [memberId], references: [id])
+  projectId      Int      @map("project_id")
+  project        Project  @relation(fields: [projectId], references: [id])
+  requiredAmount Decimal  @db.Decimal(120, 2) @map("required_amount")
+  currencyCode   String   @map("currency_code")
+  currency       Currency @relation(fields: [currencyCode], references: [code])
+  isExempt       Boolean  @default(false) @map("is_exempt")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([memberId, projectId])
+  @@map("member_projects")
+}
+
+model MemberContribution {
+  id              Int                @id @default(autoincrement())
+  receiptNumber   String             @unique @map("receipt_number")
+  memberId        Int                @map("member_id")
+  member          Member             @relation(fields: [memberId], references: [id])
+  projectId       Int?               @map("project_id")
+  project         Project?           @relation(fields: [projectId], references: [id])
+  amount          Decimal            @db.Decimal(120, 2)
+  currencyCode    String             @map("currency_code")
+  currency        Currency           @relation(fields: [currencyCode], references: [code])
+  paymentMethodId Int                @map("payment_method_id")
+  paymentMethod   PaymentMethod      @relation(fields: [paymentMethodId], references: [id])
+  referenceNumber String?            @map("reference_number")
+  paymentDate     DateTime           @default(now()) @map("payment_date")
+  processedBy     Int                @map("processed_by")
+  processor       User               @relation(fields: [processedBy], references: [id])
+  notes           String?
+  status          ContributionStatus @default(COMPLETED)
+  isRecurring     Boolean            @default(false) @map("is_recurring")
+  recurringPlanId Int?               @map("recurring_plan_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@map("member_contributions")
+}
+
+enum ContributionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum ExpenditureCategory {
+  OPERATIONAL
+  PROJECT
+  CAPITAL
+  MAINTENANCE
+  UTILITIES
+  PERSONNEL
+  MINISTRY
+  OUTREACH
+  EMERGENCY
+  ADMINISTRATIVE
+}
+
+enum ExpenseFrequency {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+  IRREGULAR
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REQUIRES_REVIEW
+  ESCALATED
+}
+
+enum ExpenseUrgency {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+  EMERGENCY
+}
+
+model Expenditure {
+  id                  Int                  @id @default(autoincrement())
+  voucherNumber       String               @unique @map("voucher_number")
+  expenditureHeadCode String               @map("expenditure_head_code")
+  expenditureHead     ExpenditureHead      @relation(fields: [expenditureHeadCode], references: [code])
+  projectId           Int?                 @map("project_id")
+  project             Project?             @relation(fields: [projectId], references: [id])
+  milestoneId         Int?                 @map("milestone_id")
+  milestone           ProjectMilestone?    @relation(fields: [milestoneId], references: [id])
+  supplierId          Int?                 @map("supplier_id")
+  supplier            Supplier?            @relation(fields: [supplierId], references: [id])
+  description         String
+  amount              Decimal              @db.Decimal(120, 2)
+  taxAmount           Decimal?             @default(0) @db.Decimal(120, 2) @map("tax_amount")
+  totalAmount         Decimal              @db.Decimal(120, 2) @map("total_amount")
+  currencyCode        String               @map("currency_code")
+  currency            Currency             @relation(fields: [currencyCode], references: [code])
+  paymentMethodId     Int                  @map("payment_method_id")
+  paymentMethod       PaymentMethod        @relation(fields: [paymentMethodId], references: [id])
+  referenceNumber     String?              @map("reference_number")
+  branchCode          String               @map("branch_code")
+  branch              Branch               @relation(fields: [branchCode], references: [code])
+  expenseDate         DateTime             @map("expense_date")
+  paymentDate         DateTime?            @map("payment_date")
+  dueDate             DateTime?            @map("due_date")
+  frequency           ExpenseFrequency     @default(ONE_TIME)
+  urgency             ExpenseUrgency       @default(NORMAL)
+  isRecurring         Boolean              @default(false) @map("is_recurring")
+  recurringUntil      DateTime?            @map("recurring_until")
+  approvalStatus      ApprovalStatus       @default(PENDING) @map("approval_status")
+  approvedBy          Int?                 @map("approved_by")
+  approver            User?                @relation("ExpenditureApprovals", fields: [approvedBy], references: [id])
+  approvedAt          DateTime?            @map("approved_at")
+  requestedBy         Int                  @map("requested_by")
+  requester           User                 @relation("ExpenditureRequests", fields: [requestedBy], references: [id])
+  processedBy         Int?                 @map("processed_by")
+  processor           User?                @relation("ExpenditureProcessing", fields: [processedBy], references: [id])
+  notes               String?
+  internalNotes       String?              @map("internal_notes")
+  tags                String[]
+  isReimbursement     Boolean              @default(false) @map("is_reimbursement")
+  reimbursedTo        Int?                 @map("reimbursed_to")
+  reimbursee          Member?              @relation(fields: [reimbursedTo], references: [id])
+  budgetYear          Int                  @map("budget_year")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  receipts            ExpenseReceipt[]
+  lineItems           ExpenditureLineItem[]
+  approvalHistory     ApprovalHistory[]
+  assetCreated        Asset?
+
+  @@map("expenditures")
+}
+
+model ExpenditureLineItem {
+  id            Int         @id @default(autoincrement())
+  expenditureId Int         @map("expenditure_id")
+  expenditure   Expenditure @relation(fields: [expenditureId], references: [id], onDelete: Cascade)
+  description   String
+  quantity      Decimal     @db.Decimal(10, 3)
+  unitPrice     Decimal     @db.Decimal(120, 2) @map("unit_price")
+  totalPrice    Decimal     @db.Decimal(120, 2) @map("total_price")
+  taxRate       Decimal?    @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  notes         String?
+
+  @@map("expenditure_line_items")
+}
+
+model ExpenseReceipt {
+  id            Int         @id @default(autoincrement())
+  expenditureId Int         @map("expenditure_id")
+  expenditure   Expenditure @relation(fields: [expenditureId], references: [id], onDelete: Cascade)
+  fileName      String      @map("file_name")
+  originalName  String      @map("original_name")
+  filePath      String      @map("file_path")
+  fileSize      Int         @map("file_size")
+  mimeType      String      @map("mime_type")
+  receiptType   ReceiptType @map("receipt_type")
+  receiptNumber String?     @map("receipt_number")
+  merchantName  String?     @map("merchant_name")
+  receiptDate   DateTime?   @map("receipt_date")
+  ocrText       String?     @map("ocr_text")
+  isVerified    Boolean     @default(false) @map("is_verified")
+  uploadedBy    Int         @map("uploaded_by")
+  uploader      User        @relation(fields: [uploadedBy], references: [id])
+  uploadedAt    DateTime    @default(now()) @map("uploaded_at")
+  verifiedBy    Int?        @map("verified_by")
+  verifier      User?       @relation("ReceiptVerification", fields: [verifiedBy], references: [id])
+  verifiedAt    DateTime?   @map("verified_at")
+
+  @@map("expense_receipts")
+}
+
+enum ReceiptType {
+  INVOICE
+  RECEIPT
+  VOUCHER
+  BANK_STATEMENT
+  CONTRACT
+  QUOTE
+  PURCHASE_ORDER
+  DELIVERY_NOTE
+  OTHER
+}
+
+model Supplier {
+  id              Int            @id @default(autoincrement())
+  code            String         @unique
+  name            String
+  businessName    String?        @map("business_name")
+  contactPerson   String?        @map("contact_person")
+  email           String?
+  phoneNumber     String?        @map("phone_number")
+  address         String?
+  taxNumber       String?        @map("tax_number")
+  bankAccount     String?        @map("bank_account")
+  paymentTerms    Int?           @default(30) @map("payment_terms")
+  creditLimit     Decimal?       @db.Decimal(120, 2) @map("credit_limit")
+  supplierType    SupplierType   @default(VENDOR) @map("supplier_type")
+  rating          Int?           @default(5)
+  status          SupplierStatus @default(ACTIVE)
+  bannedReason    String?        @map("banned_reason")
+  bannedBy        Int?           @map("banned_by")
+  banner          User?          @relation("SupplierBans", fields: [bannedBy], references: [id])
+  bannedAt        DateTime?      @map("banned_at")
+  blacklistUntil  DateTime?      @map("blacklist_until")
+  riskLevel       RiskLevel      @default(LOW) @map("risk_level")
+  notes           String?
+  isPreferred     Boolean        @default(false) @map("is_preferred")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  expenditures  Expenditure[]
+  contracts     Contract[]
+  evaluations   SupplierEvaluation[]
+  statusHistory SupplierStatusHistory[]
+
+  @@map("suppliers")
+  MaintenanceRecord MaintenanceRecord[]
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+  UNDER_REVIEW
+  PROBATION
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model SupplierStatusHistory {
+  id          Int            @id @default(autoincrement())
+  supplierId  Int            @map("supplier_id")
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  oldStatus   SupplierStatus @map("old_status")
+  newStatus   SupplierStatus @map("new_status")
+  reason      String
+  changedBy   Int            @map("changed_by")
+  changer     User           @relation(fields: [changedBy], references: [id])
+  changedAt   DateTime       @default(now()) @map("changed_at")
+  reviewDate  DateTime?      @map("review_date")
+
+  @@map("supplier_status_history")
+}
+
+enum SupplierType {
+  VENDOR
+  CONTRACTOR
+  SERVICE_PROVIDER
+  CONSULTANT
+  UTILITY_COMPANY
+  GOVERNMENT_AGENCY
+}
+
+model SupplierEvaluation {
+  id               Int      @id @default(autoincrement())
+  supplierId       Int      @map("supplier_id")
+  supplier         Supplier @relation(fields: [supplierId], references: [id])
+  evaluatedBy      Int      @map("evaluated_by")
+  evaluator        User     @relation(fields: [evaluatedBy], references: [id])
+  qualityRating    Int      @map("quality_rating")
+  timelinessRating Int      @map("timeliness_rating")
+  valueRating      Int      @map("value_rating")
+  serviceRating    Int      @map("service_rating")
+  overallRating    Float    @map("overall_rating")
+  comments         String?
+  wouldRecommend   Boolean  @default(true) @map("would_recommend")
+  evaluationDate   DateTime @default(now()) @map("evaluation_date")
+
+  @@map("supplier_evaluations")
+}
+
+model Contract {
+  id             Int            @id @default(autoincrement())
+  contractNumber String         @unique @map("contract_number")
+  supplierId     Int            @map("supplier_id")
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  projectId      Int?           @map("project_id")
+  project        Project?       @relation(fields: [projectId], references: [id])
+  title          String
+  description    String?
+  contractValue  Decimal        @db.Decimal(120, 2) @map("contract_value")
+  currencyCode   String         @map("currency_code")
+  currency       Currency       @relation(fields: [currencyCode], references: [code])
+  startDate      DateTime       @map("start_date")
+  endDate        DateTime       @map("end_date")
+  renewalDate    DateTime?      @map("renewal_date")
+  status         ContractStatus @default(DRAFT)
+  contractType   ContractType   @map("contract_type")
+  paymentTerms   String?        @map("payment_terms")
+  deliverables   String?
+  penalties      String?
+  signedBy       Int?           @map("signed_by")
+  signer         User?          @relation(fields: [signedBy], references: [id])
+  signedDate     DateTime?      @map("signed_date")
+  documentPath   String?        @map("document_path")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  milestones ContractMilestone[]
+
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_REVIEW
+  PENDING_SIGNATURE
+  ACTIVE
+  COMPLETED
+  TERMINATED
+  EXPIRED
+}
+
+enum ContractType {
+  SERVICE
+  SUPPLY
+  CONSTRUCTION
+  MAINTENANCE
+  CONSULTING
+  LEASE
+  OTHER
+}
+
+model ContractMilestone {
+  id          Int             @id @default(autoincrement())
+  contractId  Int             @map("contract_id")
+  contract    Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  description String
+  dueDate     DateTime        @map("due_date")
+  amount      Decimal?        @db.Decimal(120, 2)
+  status      MilestoneStatus @default(PENDING)
+  completedAt DateTime?       @map("completed_at")
+  notes       String?
+
+  @@map("contract_milestones")
+}
+
+model Asset {
+  id              Int             @id @default(autoincrement())
+  assetNumber     String          @unique @map("asset_number")
+  name            String
+  description     String?
+  category        AssetCategory
+  expenditureId   Int?            @unique @map("expenditure_id")
+  expenditure     Expenditure?    @relation(fields: [expenditureId], references: [id])
+  branchCode      String          @map("branch_code")
+  branch          Branch          @relation(fields: [branchCode], references: [code])
+  purchasePrice   Decimal         @db.Decimal(120, 2) @map("purchase_price")
+  currentValue    Decimal?        @db.Decimal(120, 2) @map("current_value")
+  currencyCode    String          @map("currency_code")
+  currency        Currency        @relation(fields: [currencyCode], references: [code])
+  purchaseDate    DateTime        @map("purchase_date")
+  warrantyExpiry  DateTime?       @map("warranty_expiry")
+  condition       AssetCondition  @default(EXCELLENT)
+  location        String?
+  assignedTo      Int?            @map("assigned_to")
+  assignee        User?           @relation(fields: [assignedTo], references: [id])
+  depreciationRate Decimal?       @db.Decimal(5, 2) @map("depreciation_rate")
+  isInsured       Boolean         @default(false) @map("is_insured")
+  insuranceExpiry DateTime?       @map("insurance_expiry")
+  serialNumber    String?         @map("serial_number")
+  barcode         String?
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  maintenanceRecords MaintenanceRecord[]
+
+  @@map("assets")
+}
+
+enum AssetCategory {
+  FURNITURE
+  EQUIPMENT
+  ELECTRONICS
+  VEHICLES
+  PROPERTY
+  INSTRUMENTS
+  SOFTWARE
+  OTHER
+}
+
+enum AssetCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+  OBSOLETE
+}
+
+model MaintenanceRecord {
+  id                Int             @id @default(autoincrement())
+  assetId           Int             @map("asset_id")
+  asset             Asset           @relation(fields: [assetId], references: [id])
+  maintenanceType   MaintenanceType @map("maintenance_type")
+  description       String
+  cost              Decimal?        @db.Decimal(120, 2)
+  currencyCode      String?         @map("currency_code")
+  currency          Currency?       @relation(fields: [currencyCode], references: [code])
+  supplierId        Int?            @map("supplier_id")
+  supplier          Supplier?       @relation(fields: [supplierId], references: [id])
+  scheduledDate     DateTime?       @map("scheduled_date")
+  completedDate     DateTime?       @map("completed_date")
+  nextServiceDate   DateTime?       @map("next_service_date")
+  performedBy       String?         @map("performed_by")
+  notes             String?
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@map("maintenance_records")
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  EMERGENCY
+  UPGRADE
+  INSPECTION
+}
+
+model ApprovalHistory {
+  id            Int            @id @default(autoincrement())
+  expenditureId Int            @map("expenditure_id")
+  expenditure   Expenditure    @relation(fields: [expenditureId], references: [id], onDelete: Cascade)
+  approverLevel Int            @map("approver_level")
+  approvedBy    Int            @map("approved_by")
+  approver      User           @relation(fields: [approvedBy], references: [id])
+  status        ApprovalStatus
+  comments      String?
+  approvedAt    DateTime       @default(now()) @map("approved_at")
+
+  @@map("approval_history")
+}
+
+model BudgetPeriod {
+  id          Int      @id @default(autoincrement())
+  name        String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  budgetType  BudgetType @map("budget_type")
+  status      BudgetStatus @default(DRAFT)
+  totalBudget Decimal  @db.Decimal(120, 2) @map("total_budget")
+  actualSpent Decimal  @default(0) @db.Decimal(120, 2) @map("actual_spent")
+  currencyCode String  @map("currency_code")
+  currency    Currency @relation(fields: [currencyCode], references: [code])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  budgetLines BudgetLine[]
+
+  @@map("budget_periods")
+}
+
+enum BudgetType {
+  ANNUAL
+  QUARTERLY
+  MONTHLY
+  PROJECT_BASED
+  EVENT_BASED
+}
+
+enum BudgetStatus {
+  DRAFT
+  APPROVED
+  ACTIVE
+  CLOSED
+  REVISED
+}
+
+model BudgetLine {
+  id                  Int              @id @default(autoincrement())
+  budgetPeriodId      Int              @map("budget_period_id")
+  budgetPeriod        BudgetPeriod     @relation(fields: [budgetPeriodId], references: [id])
+  expenditureHeadCode String           @map("expenditure_head_code")
+  expenditureHead     ExpenditureHead  @relation(fields: [expenditureHeadCode], references: [code])
+  projectId           Int?             @map("project_id")
+  project             Project?         @relation(fields: [projectId], references: [id])
+  budgetedAmount      Decimal          @db.Decimal(120, 2) @map("budgeted_amount")
+  actualAmount        Decimal          @default(0) @db.Decimal(120, 2) @map("actual_amount")
+  variance            Decimal          @default(0) @db.Decimal(120, 2)
+  variancePercent     Decimal          @default(0) @db.Decimal(5, 2) @map("variance_percent")
+  notes               String?
+
+  @@unique([budgetPeriodId, expenditureHeadCode, projectId])
+  @@map("budget_lines")
+}
+
+model Transaction {
+  id                Int           @id @default(autoincrement())
+  receiptNumber     String        @unique @map("receipt_number")
+  memberId          Int           @map("member_id")
+  member            Member        @relation(fields: [memberId], references: [id])
+  revenueHeadCode   String        @map("revenue_head_code")
+  revenueHead       RevenueHead   @relation(fields: [revenueHeadCode], references: [code])
+  amount            Decimal       @db.Decimal(120, 2)
+  currencyCode      String        @map("currency_code")
+  currency          Currency      @relation(fields: [currencyCode], references: [code])
+  paymentMethodId   Int           @map("payment_method_id")
+  paymentMethod     PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  referenceNumber   String?       @map("reference_number")
+  branchCode        String        @map("branch_code")
+  branch            Branch        @relation(fields: [branchCode], references: [code])
+  transactionDate   DateTime      @default(now()) @map("transaction_date") @db.Timestamptz(6)
+  userId            Int           @map("user_id")
+  user              User          @relation(fields: [userId], references: [id])
+  status            String        @default("completed")
+  notes             String?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  refunds Refund[]
+
+  @@map("transactions")
+}
+
+model Refund {
+  id            Int         @id @default(autoincrement())
+  transactionId Int         @map("transaction_id")
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  amount        Decimal     @db.Decimal(120, 2)
+  currencyCode  String      @map("currency_code")
+  currency      Currency    @relation(fields: [currencyCode], references: [code])
+  reason        String
+  processedById Int         @map("processed_by_id")
+  processedBy   User        @relation(fields: [processedById], references: [id])
+  processedAt   DateTime    @default(now()) @map("processed_at")
+
+  @@map("refunds")
+}
+
+model PaymentMethod {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  allowedCurrencies   CurrencyPaymentMethod[]
+  transactions        Transaction[]
+  memberContributions MemberContribution[]
+  expenditures        Expenditure[]
+
+  @@map("payment_methods")
+}
+
+model CurrencyPaymentMethod {
+  currencyCode    String        @map("currency_code")
+  currency        Currency      @relation(fields: [currencyCode], references: [code])
+  paymentMethodId Int           @map("payment_method_id")
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  isActive        Boolean       @default(true) @map("is_active")
+
+  @@id([currencyCode, paymentMethodId])
+  @@map("currency_payment_methods")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  username  String
+  action    String
+  tableName String   @map("table_name")
+  recordId  String   @map("record_id")
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  timestamp DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("audit_logs")
+}
