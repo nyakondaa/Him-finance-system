@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from 'react';
+import * as React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -23,12 +23,12 @@ export default function App() {
     const { modalMessage, modalTitle, showConfirmButton, confirmAction, showModal, closeModal, handleConfirm } = useModal();
 
     return (
-        <AuthProvider showGlobalModal={showModal}>
+        <AuthProvider>
             <Routes>
-                <Route path="/login" element={<LoginPage showModal={showModal} />} />
+                <Route path="/login" element={<LoginPage />} />
 
                 {/* Protected Routes */}
-                <Route path="/" element={<ProtectedRoute />}>
+                <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "user"]} />}>
                     <Route path="/" element={<DashboardLayout />}>
                         <Route index element={<DashboardPage showModal={showModal} />} />
                         <Route path="users" element={<UserManagementPage showModal={showModal} />} />
@@ -54,6 +54,7 @@ export default function App() {
                 onClose={closeModal}
                 showConfirmButton={showConfirmButton}
                 onConfirm={handleConfirm}
+                isOpen={!!modalMessage}
             />
         </AuthProvider>
     );

@@ -1,6 +1,6 @@
 // src/pages/UserManagementPage.jsx
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, Query } from '@tanstack/react-query';
 import {
     Users, Lock, Unlock, Plus, MinusCircle, Trash2, Edit,
     UserCheck, Shield, Settings, Eye, EyeOff, Search,
@@ -62,7 +62,11 @@ const SYSTEM_ROLES = [
     }
 ];
 
-const UserManagementPage = ({ showModal }) => {
+type UserManagementPageProps = {
+    showModal: (message: string, title?: string, confirm?: boolean, onConfirm?: () => void) => void;
+};
+
+const UserManagementPage: React.FC<UserManagementPageProps> = ({ showModal }) => {
     const queryClient = useQueryClient();
     const { currentUser } = useAuth();
 
@@ -89,28 +93,27 @@ const UserManagementPage = ({ showModal }) => {
     const { data: users = [], isLoading: isLoadingUsers, error: usersError } = useQuery({
         queryKey: ['users'],
         queryFn: getUsers,
-        onError: (err) => showModal(err.message || 'Failed to load users.', 'Error'),
     });
 
     // Fetch branches
     const { data: branches = [], isLoading: isLoadingBranches, error: branchesError } = useQuery({
         queryKey: ['branches'],
         queryFn: getBranches,
-        onError: (err) => showModal(err.message || 'Failed to load branches.', 'Error'),
+        onError: (err: { message: any; }) => showModal(err.message || 'Failed to load branches.', 'Error'),
     });
 
     // User mutations
     const createUserMutation = useMutation({
         mutationFn: createUser,
         onSuccess: () => {
-            queryClient.invalidateQueries(['users']);
+            queryClient.invalidateQueries({ queryKey: ['users'] });
             showModal('User created successfully!');
             resetUserForm();
         },
         onError: (err) => showModal(err.message || 'Failed to create user.', 'Error'),
     });
 
-    const updateUserMutation = useMutation({
+    const updateUserMutation = useMutation<{ id: number; data: any }, any, { id: number; data: any }>({
         mutationFn: ({ id, data }) => updateUser(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries(['users']);
@@ -123,7 +126,7 @@ const UserManagementPage = ({ showModal }) => {
     const deleteUserMutation = useMutation({
         mutationFn: deleteUser,
         onSuccess: () => {
-            queryClient.invalidateQueries(['users']);
+            queryClient.invalidateQueries({ queryKey: ['users'] });
             showModal('User deleted successfully.');
         },
         onError: (err) => showModal(err.message || 'Failed to delete user.', 'Error'),
@@ -132,7 +135,7 @@ const UserManagementPage = ({ showModal }) => {
     const lockUserMutation = useMutation({
         mutationFn: lockUser,
         onSuccess: () => {
-            queryClient.invalidateQueries(['users']);
+            queryClient.invalidateQueries({queryKey: ['users']});
             showModal('User locked successfully.');
         },
         onError: (err) => showModal(err.message || 'Failed to lock user.', 'Error'),
@@ -141,16 +144,16 @@ const UserManagementPage = ({ showModal }) => {
     const unlockUserMutation = useMutation({
         mutationFn: unlockUser,
         onSuccess: () => {
-            queryClient.invalidateQueries(['users']);
+            queryClient.invalidateQueries({queryKey: ['users']});
             showModal('User unlocked successfully.');
         },
         onError: (err) => showModal(err.message || 'Failed to unlock user.', 'Error'),
     });
 
     const resetPasswordMutation = useMutation({
-        mutationFn: resetPassword,
+        mutationFn: ({ token, newPassword }) => resetPassword(token, newPassword),
         onSuccess: () => {
-            queryClient.invalidateQueries(['users']);
+            queryClient.invalidateQueries({});
             showModal('Password reset successfully. New password has been generated.');
         },
         onError: (err) => showModal(err.message || 'Failed to reset password.', 'Error'),
@@ -171,7 +174,7 @@ const UserManagementPage = ({ showModal }) => {
         setPasswordError('');
     };
 
-    const validatePassword = (password) => {
+    const validatePassword = (password: string) => {
         const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+])[a-zA-Z\d!@#$%^&*()_+]{8,}$/;
         if (!regex.test(password)) {
             return 'Password must be at least 8 characters, contain uppercase, lowercase, a number, and a special character.';
@@ -543,7 +546,7 @@ const UserManagementPage = ({ showModal }) => {
                                                         setPasswordError('');
                                                     }}
                                                     className="px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1 bg-blue-500 text-white hover:bg-blue-600 transition duration-200"
-                                                    disabled={updateUserMutation.isLoading}
+                                                    disabled={updateUserMutation.isPending}
                                                 >
                                                     <Edit className="w-3 h-3" /> Edit
                                                 </button>
@@ -556,7 +559,7 @@ const UserManagementPage = ({ showModal }) => {
                                                             ? 'bg-green-500 text-white hover:bg-green-600'
                                                             : 'bg-red-500 text-white hover:bg-red-600'
                                                     }`}
-                                                    disabled={lockUserMutation.isLoading || unlockUserMutation.isLoading}
+                                                    disabled={lockUserMutation.isPending || unlockUserMutation.isPending}
                                                 >
                                                     {user.locked ?
                                                         <><Unlock className="w-3 h-3" /> Unlock</> :
@@ -568,7 +571,7 @@ const UserManagementPage = ({ showModal }) => {
                                                 <button
                                                     onClick={() => handleResetPassword(user.id)}
                                                     className="px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1 bg-purple-500 text-white hover:bg-purple-600 transition duration-200"
-                                                    disabled={resetPasswordMutation.isLoading}
+                                                    disabled={resetPasswordMutation.isPending}
                                                 >
                                                     <RefreshCw className="w-3 h-3" /> Reset PW
                                                 </button>
@@ -578,7 +581,7 @@ const UserManagementPage = ({ showModal }) => {
                                                     <button
                                                         onClick={() => handleDeleteUser(user.id, user.username)}
                                                         className="px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1 bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-200"
-                                                        disabled={deleteUserMutation.isLoading}
+                                                        disabled={deleteUserMutation.isPending}
                                                     >
                                                         <Trash2 className="w-3 h-3" /> Delete
                                                     </button>

@@ -18,6 +18,7 @@ const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 
+
 const app = express();
 const prisma = new PrismaClient();
 const certPath = path.join(__dirname, 'qz-certs', 'client.pem');
@@ -43,23 +44,23 @@ const httpLogger = pinoHttp({ logger });
 
 // Environment Configuration
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET;
-const REFRESH_SECRET = process.env.REFRESH_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "";
+const REFRESH_SECRET = process.env.REFRESH_SECRET || "";
 const MAX_LOGIN_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5', 10);
 const ACCESS_TOKEN_EXPIRATION = process.env.ACCESS_TOKEN_EXPIRATION || '15m';
 const REFRESH_TOKEN_EXPIRATION = process.env.REFRESH_TOKEN_EXPIRATION || '7d';
 const DEFAULT_CURRENCY = process.env.DEFAULT_CURRENCY || 'ZIG';
-const EMAIL_SERVICE = process.env.EMAIL_SERVICE;
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
-const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER;
+const EMAIL_SERVICE = process.env.EMAIL_SERVICE || "";
+const EMAIL_USER = process.env.EMAIL_USER || "";
+const EMAIL_PASS = process.env.EMAIL_PASS || "";
+const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "";
 
 // Default Admin Configuration
-const DEFAULT_ADMIN_USERNAME = process.env.DEFAULT_ADMIN_USERNAME;
-const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD;
+const DEFAULT_ADMIN_USERNAME = process.env.DEFAULT_ADMIN_USERNAME || "";
+const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "";
 const DEFAULT_ADMIN_BRANCH = process.env.DEFAULT_ADMIN_BRANCH || '00';
 
-// Security checks
+
 if (!JWT_SECRET || !REFRESH_SECRET) {
     logger.fatal('FATAL ERROR: JWT_SECRET and REFRESH_SECRET must be defined in .env');
     process.exit(1);
@@ -69,6 +70,8 @@ if (!process.env.NODE_ENV) {
     logger.warn('NODE_ENV is not set. Defaulting to development.');
     process.env.NODE_ENV = 'development';
 }
+
+
 
 // Nodemailer transporter setup
 const transporter = nodemailer.createTransport({
@@ -2073,6 +2076,84 @@ app.post('/api/transactions', authenticateToken, checkPermission('transactions',
         message: 'Transaction recorded successfully.',
         transaction
     });
+}));
+
+
+//--Gettiing Transactions
+app.get('/api/transactions', authenticateToken, checkPermission('transactions', 'read'), asyncHandler(async (req, res) => {
+    // 1. Destructure and validate query parameters
+    const { limit = 50, offset = 0, branchCode, approvalStatus, startDate, endDate } = req.query;
+
+    const take = parseInt(limit, 10);
+    const skip = parseInt(offset, 10);
+
+    let whereClause = {};
+
+    // 2. Implement row-level security and optional branch filtering
+    if (!req.user.role.permissions.transactions?.includes('read_all')) {
+        // If user does not have 'read_all' permission, they can only see their branch's transactions
+        whereClause.branchCode = req.user.branchCode;
+    } else if (branchCode) {
+        // If user has 'read_all' permission and provides a branchCode, filter by it
+        whereClause.branchCode = branchCode;
+    }
+
+    // 3. Add other filters if they exist
+    // This is a transaction endpoint, approvalStatus is likely an expenditure field, remove it if not needed.
+    // If your Transaction model has an approvalStatus field, keep this.
+    if (approvalStatus) {
+        whereClause.approvalStatus = approvalStatus;
+    }
+
+    // 4. Implement date filtering
+    if (startDate || endDate) {
+        whereClause.transactionDate = {};
+        if (startDate) {
+            whereClause.transactionDate.gte = new Date(startDate);
+        }
+        if (endDate) {
+            // Include the entire end day by setting the time to the next day's start
+            const endDateObj = new Date(endDate);
+            whereClause.transactionDate.lt = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate() + 1);
+        }
+    }
+
+    // 5. Correct the Prisma query to use the correct model and includes
+    try {
+        const [transactions, total] = await Promise.all([
+            prisma.transaction.findMany({
+                where: whereClause,
+                take,
+                skip,
+                orderBy: { transactionDate: 'desc' },
+              
+                include: {
+                    revenueHead: { select: { name: true } },
+                    member: { select: { firstName: true, lastName: true } },
+                    currency: { select: { name: true, symbol: true } },
+                    paymentMethod: { select: { name: true } },
+                    branch: { select: { name: true } },
+                   
+                    user: { select: { username: true } } 
+                }
+            }),
+            prisma.transaction.count({ where: whereClause })
+        ]);
+
+       
+        res.status(200).json({
+            total,
+            limit: take,
+            offset: skip,
+            transactions 
+        });
+
+    } catch (error) {
+       
+        logger.error('Error fetching transactions:', error);
+       
+        throw new AppError('Failed to fetch transactions due to a database error.', 500);
+    }
 }));
 
 // --- EXPENDITURE MANAGEMENT ROUTES ---

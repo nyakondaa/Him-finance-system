@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [loggedIn, setLoggedIn] = useState(false);
     const [loadingAuth, setLoadingAuth] = useState(true);
     const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
-    const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Debugging logs
     const debugLog = (message: string, data?: any) => {

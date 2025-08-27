@@ -65,7 +65,7 @@ const TransactionsPage = () => {
         mutationFn: (refundData: { reason: string; processedBy: string }) =>
             refundTransaction(selectedTransactionId!, refundData),
         onSuccess: () => {
-            queryClient.invalidateQueries(['transactions']);
+            queryClient.invalidateQueries({queryKey:['transactions']});
             setShowRefundDialog(false);
             setSelectedTransactionId(null);
             setRefundReason('');
@@ -150,7 +150,7 @@ const TransactionsPage = () => {
                                 </TableCell>
                             </TableRow>
                         ) : transactions?.transactions?.length > 0 ? (
-                            transactions.transactions.map((transaction) => (
+                            transactions.transactions.map((transaction:any) => (
                                 <TableRow key={transaction.id}>
                                     <TableCell className="font-medium">{transaction.receiptNumber}</TableCell>
                                     <TableCell>{formatDate(transaction.transactionDate)}</TableCell>
@@ -273,9 +273,9 @@ const TransactionsPage = () => {
                         <Button
                             variant="destructive"
                             onClick={handleRefundSubmit}
-                            disabled={!refundReason.trim() || refundMutation.isLoading}
+                            disabled={!refundReason.trim() || refundMutation.isPending}
                         >
-                            {refundMutation.isLoading ? 'Processing...' : 'Confirm Refund'}
+                            {refundMutation.isPending ? 'Processing...' : 'Confirm Refund'}
                         </Button>
                     </div>
                 </DialogContent>

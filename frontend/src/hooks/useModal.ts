@@ -1,13 +1,13 @@
 // src/hooks/useModal.js
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type SetStateAction } from 'react';
 
 const useModal = () => {
     const [modalMessage, setModalMessage] = useState('');
     const [modalTitle, setModalTitle] = useState('Notification');
     const [showConfirmButton, setShowConfirmButton] = useState(false);
-    const [confirmAction, setConfirmAction] = useState(null);
+    const [confirmAction, setConfirmAction] = useState<null | (() => void)>(null);
 
-    const showModal = useCallback((message, title = 'Notification', showConfirm = false, onConfirm = null) => {
+    const showModal = useCallback((message: SetStateAction<string>, title = 'Notification', showConfirm = false, onConfirm = null) => {
         setModalMessage(message);
         setModalTitle(title);
         setShowConfirmButton(showConfirm);
