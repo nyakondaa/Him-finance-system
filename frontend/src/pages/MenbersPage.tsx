@@ -3,7 +3,7 @@ import { Plus, User, Pencil, Trash2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; 
 import MemberFormModal from '../components/MemberFormModal';
-import { createMember, getMembers } from '@/services/api';
+import { createMember, deleteMember, getMembers } from '@/services/api';
 
 
 
@@ -78,8 +78,21 @@ export default function App() {
         
     };
 
-    const handleDelete = (memberId) => {
+    const handleDelete = async (memberId) => {
+
         console.log(`Delete member with ID: ${memberId}`);
+        setIsLoading(true);
+        try {
+
+            await deleteMember(memberId);
+            toast.success("Member deleted successfully");
+            setMembers(members.filter(member => member.id !== memberId));
+        }catch(err) {
+            console.error("Failed to delete member:", err);
+            toast.error("Failed to delete member");
+        }finally {
+            setIsLoading(false);
+        }
         
     };
 
