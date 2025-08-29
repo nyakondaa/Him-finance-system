@@ -12,7 +12,7 @@ export default function App() {
     let [members, setMembers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isDeleteMemberModalOpen, setIsDeleteMemberModalOpen] = useState(false);
+    
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState(null);
     const [showToast, setShowToast] = useState({ message: '', type: '' })
@@ -30,8 +30,8 @@ export default function App() {
             setIsLoading(true);
             try {
                 const data = await getMembers();
-                console.log("Fetched members:", data);
-                setMembers(data.members || []);
+                console.log("Fetched members:", data.members);
+                setMembers(data.members);
             } catch (err) {
                 showNotification("Failed to fetch members.", "error");
                 console.error("Failed to fetch members:", err);
@@ -52,7 +52,7 @@ export default function App() {
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        setIsDeleteMemberModalOpen(false);
+        setIsDeleteModalOpen(false);
         setSelectedMember(null);
     };
        
@@ -86,7 +86,8 @@ const handleCreateMember = async (memberData) => {
     setIsLoading(true);
     try {
         
-        await createMember(memberData); 
+        const newMember = await createMember(memberData); 
+        setMembers(prev => [newMember, ...prev]);
         toast.success("Member created successfully");           
       
         handleCloseModal();
@@ -198,32 +199,60 @@ const handleCreateMember = async (memberData) => {
             {isModalOpen && <MemberFormModal onClose={handleCloseModal} onCreate={handleCreateMember} />}
         
           
-        {isDeleteModalOpen && selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Delete Member</h2>
-              <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 transition-colors">
-                {/* X Icon SVG */}
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-                  <path d="M18 6L6 18"/><path d="M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <p className="text-gray-700 mb-6">
-              Are you sure you want to delete <strong>{selectedMember.firstName} {selectedMember.lastName}</strong>? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button onClick={handleCloseModal} className="px-4 py-2 text-gray-700 font-semibold rounded-full border border-gray-300 hover:bg-gray-100 transition-colors">
-                Cancel
-              </button>
-              <button onClick={handleDeleteConfirm} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-full hover:bg-red-700 transition-colors shadow-md">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {isDeleteModalOpen && selectedMember && (
+  <div className="fixed inset-0 flex items-center justify-center p-4 z-40">
+    {/* Blurred background */}
+    <div className="absolute inset-0 backdrop-blur-sm"></div>
+
+    {/* Modal content */}
+    <div className="relative bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Delete Member</h2>
+        <button
+          onClick={handleCloseModal}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-6 h-6"
+          >
+            <path d="M18 6L6 18" />
+            <path d="M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <p className="text-gray-700 mb-6">
+        Are you sure you want to delete{' '}
+        <strong>{selectedMember.firstName} {selectedMember.lastName}</strong>? This action cannot be undone.
+      </p>
+
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={handleCloseModal}
+          className="px-4 py-2 text-gray-700 font-semibold rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleDeleteConfirm}
+          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-full hover:bg-red-700 transition-colors shadow-md"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
 
         </div>

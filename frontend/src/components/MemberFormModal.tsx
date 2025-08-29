@@ -289,43 +289,8 @@ const MemberFormModal = ({ member, onClose, onCreate, onUpdate, isLoading }) => 
                                         <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>
                                     )}
                                 </div>
-                                    {/*
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Age Category</label>
-                                    <select
-                                        name="ageCategory"
-                                        value={formData.ageCategory}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    >
-                                        {ageCategories.map(category => (
-                                            <option key={category.value} value={category.value}>
-                                                {category.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>￼
-                                        
-
-                               { /*
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Join Date</label>
-                                    <input
-                                        type="date"
-                                        name="joinDate"
-                                        value={formData.joinDate}
-                                        onChange={handleChange}
-                                        max={new Date().toISOString().split('T')[0]}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors ${
-                                            errors.joinDate ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                                        }`}
-                                    />
-                                    {errors.joinDate && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.joinDate}</p>
-                                    )}
-                                </div>
-                                */}
+                               
+                                
                             </div>
                         </div>
 
@@ -432,24 +397,7 @@ const MemberFormModal = ({ member, onClose, onCreate, onUpdate, isLoading }) => 
                         </div>
 
 
-                        {/* Additional Notes */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                                Additional Information
-                            </h3>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                                <textarea
-                                    name="notes"
-                                    value={formData.notes}
-                                    onChange={handleChange}
-                                    rows={3}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                                    placeholder="Any additional notes about this member..."
-                                />
-                            </div>
-                        </div>
+                      
                     </form>
                 </div>
 
