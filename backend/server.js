@@ -1705,6 +1705,7 @@ app.delete('/api/members/:id', authenticateToken, checkPermission('members', 'de
     }
 
     await prisma.member.delete({ where: { id: memberId } });
+    console.log(`deleted member ${memberId}`);
 
     await logAudit(req.user.id, req.user.username, 'DELETE', 'members', memberId, existingMember, null, req);
 

@@ -3,47 +3,26 @@ import { Plus, User, Pencil, Trash2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; 
 import MemberFormModal from '../components/MemberFormModal';
-import { createMember, deleteMember, getMembers } from '@/services/api';
-
-
-
-
-const mockMembers = [
-    {
-        id: '1',
-        firstName: 'John',
-        lastName: 'Doe',
-        memberNumber: '12345',
-        email: 'john.doe@example.com',
-        branchCode: 'B01',
-    },
-    {
-        id: '2',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        memberNumber: '67890',
-        email: 'jane.smith@example.com',
-        branchCode: 'B02',
-    },
-    {
-        id: '3',
-        firstName: 'Peter',
-        lastName: 'Jones',
-        memberNumber: '11223',
-        email: 'peter.jones@example.com',
-        branchCode: 'B01',
-    }
-];
-
-
-
+import { createMember, deleteMember as deleteMemberApi, getMembers } from '@/services/api';
+import DeleteMemberModalForm from '@/components/DeleteMemberModalForm';
 
 
 // --- MAIN COMPONENT ---
 export default function App() {
-    const [members, setMembers] = useState([]);
+    let [members, setMembers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteMemberModalOpen, setIsDeleteMemberModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [selectedMember, setSelectedMember] = useState(null);
+    const [showToast, setShowToast] = useState({ message: '', type: '' })
+
+
+    const showNotification = (message, type) => {
+    setShowToast({ message, type });
+    setTimeout(() => setShowToast({ message: '', type: '' }), 3000);
+  };
+
 
     // Fetch members when the component mounts
     useEffect(() => {
@@ -54,6 +33,7 @@ export default function App() {
                 console.log("Fetched members:", data);
                 setMembers(data.members || []);
             } catch (err) {
+                showNotification("Failed to fetch members.", "error");
                 console.error("Failed to fetch members:", err);
             } finally {
                 setIsLoading(false);
@@ -68,37 +48,39 @@ export default function App() {
         setIsModalOpen(true);
     };
 
+   
+
     const handleCloseModal = () => {
         setIsModalOpen(false);
+        setIsDeleteMemberModalOpen(false);
+        setSelectedMember(null);
     };
+       
     
-    
-    const handleEdit = (memberId) => {
-        console.log(`Edit member with ID: ${memberId}`);
-        
+
+
+    const handleOpenDeleteModal = (member) => {
+    setSelectedMember(member); 
+    setIsDeleteModalOpen(true);
     };
 
-    const handleDelete = async (memberId) => {
 
-        console.log(`Delete member with ID: ${memberId}`);
-        setIsLoading(true);
-        try {
+    const handleDeleteConfirm = async () => {
+    if (!selectedMember) return;
+    setIsLoading(true);
+    try {
+        await deleteMemberApi(selectedMember.id); // call API
+        setMembers(members.filter(m => m.id !== selectedMember.id)); // update state
+        showNotification("Member deleted successfully.", "success");
+        handleCloseModal();
+    } catch(err) {
+        console.error("Failed to delete member:", err);
+        showNotification("Failed to delete member.", "error");
+    } finally {
+        setIsLoading(false);
+    }
+};
 
-            await deleteMember(memberId);
-            toast.success("Member deleted successfully");
-            setMembers(members.filter(member => member.id !== memberId));
-        }catch(err) {
-            console.error("Failed to delete member:", err);
-            toast.error("Failed to delete member");
-        }finally {
-            setIsLoading(false);
-        }
-        
-    };
-
-    // In App.tsx
-
-// In your MenbersPage.tsx
 
 const handleCreateMember = async (memberData) => {
     setIsLoading(true);
@@ -116,9 +98,7 @@ const handleCreateMember = async (memberData) => {
     }
 };
 
-  
-
-  
+    
 
     return (
         <div className="min-h-screen bg-gray-100 font-[Inter] antialiased relative">
@@ -184,13 +164,17 @@ const handleCreateMember = async (memberData) => {
                                                             >
                                                                 <Pencil className="w-4 h-4" />
                                                             </button>
-                                                            <button
-                                                                onClick={() => handleDelete(member.id)}
-                                                                className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50 transition-colors"
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
+                                 
+
+                                                        <button
+                                                        onClick={() => handleOpenDeleteModal(member)}
+                                                        className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+
+
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -212,6 +196,36 @@ const handleCreateMember = async (memberData) => {
 
             
             {isModalOpen && <MemberFormModal onClose={handleCloseModal} onCreate={handleCreateMember} />}
+        
+          
+        {isDeleteModalOpen && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Delete Member</h2>
+              <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 transition-colors">
+                {/* X Icon SVG */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                  <path d="M18 6L6 18"/><path d="M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete <strong>{selectedMember.firstName} {selectedMember.lastName}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={handleCloseModal} className="px-4 py-2 text-gray-700 font-semibold rounded-full border border-gray-300 hover:bg-gray-100 transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleDeleteConfirm} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-full hover:bg-red-700 transition-colors shadow-md">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
         </div>
     );
 }
