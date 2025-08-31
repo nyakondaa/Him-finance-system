@@ -144,7 +144,7 @@ export default function App() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {members.length > 0 ? (
-                      members.map((member, index) => (
+                      currentMembers.map((member, index) => (
                         <tr
                           key={member.id}
                           className={`${
@@ -202,6 +202,7 @@ export default function App() {
                   <button
                     onClick={() =>
                       setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      
                     }
                     disabled={currentPage === 1}
                     className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"

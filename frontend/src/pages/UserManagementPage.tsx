@@ -103,7 +103,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
   const { currentUser } = useAuth();
 
   // State for tabs
-  const [activeTab, setActiveTab] = useState("users");
+  
 
   // User management state
   const [newUser, setNewUser] = useState({
