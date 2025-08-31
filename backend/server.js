@@ -17,7 +17,8 @@ const path = require('path');
 const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
-
+const ThermalPrinter = require('node-thermal-printer').printer;
+const PrinterTypes = require('node-thermal-printer').types;
 
 const app = express();
 const prisma = new PrismaClient();
@@ -614,6 +615,13 @@ function calculateAgeCategory(dateOfBirth) {
     return 'ADULT';
 }
 
+
+const printer = new ThermalPrinter({
+  type: PrinterTypes.EPSON,  // Epson or Star
+  interface: 'usb',          // or 'tcp://IP_ADDRESS'
+  options: { timeout: 5000 }
+});
+
 async function generateReceiptNumber(type, branchCode, tx) {
     const currentYear = new Date().getFullYear();
     const prefix = type === 'contribution' ? 'MC' : type === 'transaction' ? 'TR' : 'EX';
@@ -898,6 +906,25 @@ async function generateUniqueCode(tx, table, prefix, length = 3, branchCode = nu
 })();
 
 // Load QZ Tray certificates
+
+
+app.post('/print-receipt', async (req, res) => {
+  const { formattedReceipt } = req.body; // HTML/text from receiptline
+
+  try {
+    printer.clear();
+    printer.println(formattedReceipt); // Send receipt text to printer
+    printer.cut();
+
+    await printer.execute();
+    res.json({ success: true, message: 'Receipt printed successfully' });
+  } catch (err) {
+    console.error('Printing error:', err);
+    res.status(500).json({ success: false, message: 'Printing failed', error: err.message });
+  }
+})
+
+
 try {
     if (fs.existsSync(certPath)) {
         certificate = fs.readFileSync(certPath, 'utf8');

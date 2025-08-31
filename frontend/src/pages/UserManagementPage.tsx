@@ -123,13 +123,13 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
 
   // Fetch users
   const {
-    data: users = [],
-    isLoading: isLoadingUsers,
-    error: usersError,
-  } = useQuery({
-    queryKey: ["users"],
-    queryFn: getUsers,
-  });
+  data: users,
+  isLoading: isLoadingUsers,
+  error: usersError,
+} = useQuery({
+  queryKey: ["users"],
+  queryFn: getUsers,
+});
 
   // Fetch branches
   const {
@@ -292,14 +292,18 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
   };
 
   // Filter users based on search term
-  const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${user.firstName || ""} ${user.lastName || ""}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+ // Corrected Code
+// Use optional chaining to safely access 'users' and provide an empty array as a fallback.
+const filteredUsers = Array.isArray(users)
+  ? users.filter(
+      (user) =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${user.firstName || ""} ${user.lastName || ""}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  : [];
 
   if (isLoadingUsers || isLoadingBranches) {
     return <LoadingSpinner />;

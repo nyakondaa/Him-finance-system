@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Printer,
@@ -19,7 +21,10 @@ import useAuth from "../hooks/useAuth.ts";
 
 const LoadingSpinner = () => <Loader2 className="w-4 h-4 animate-spin" />;
 
+
 const ReceiptingPage = () => {
+
+  
   // Form state
   const [receipt, setReceipt] = useState({
     payerName: "",
@@ -121,6 +126,8 @@ const ReceiptingPage = () => {
   const API_BASE_URL = "http://localhost:5000";
 
   // Fixed QZ Tray connection with proper callback pattern and server URLs
+
+  /*
   const connectToQz = useCallback(async () => {
     // Check if QZ Tray is available in browser
     if (!window.qz) {
@@ -270,6 +277,64 @@ const ReceiptingPage = () => {
       showModal(errorMessage, "Connection Error", "error");
     }
   }, [qzConnection, connectionAttempt]); // Initialize QZ connection on component mount
+
+  */
+
+
+  const connectToQz = useCallback(async () => {
+  // Check if QZ Tray is available in the browser
+  if (!window.qz) {
+    setQzConnection("disconnected");
+    showModal(
+      "QZ Tray is not installed or not running. Please download and launch QZ Tray from https://qz.io/download",
+      "QZ Tray Not Found",
+      "error"
+    );
+    return;
+  }
+
+  // Already connecting or connected
+  if (qzConnection === "connecting" || qzConnection === "connected") return;
+
+  setQzConnection("connecting");
+
+  try {
+    // Set simple development mode
+    window.qz.security.setCertificatePromise(() => Promise.resolve(""));
+    window.qz.security.setSignaturePromise(() => Promise.resolve(""));
+
+    // Connect to QZ Tray WebSocket
+    if (!window.qz.websocket.isActive()) {
+      await window.qz.websocket.connect();
+      console.log("QZ Tray connected successfully (simple mode).");
+    }
+
+    // List available printers
+    const printers = await window.qz.printers.find();
+    console.log("Printers found:", printers);
+
+    setQzPrinters(printers);
+    setSelectedPrinter(printers[0] || "");
+    setQzConnection("connected");
+
+    showModal(
+      `QZ Tray connected! Found ${printers.length} printer(s).`,
+      "Connection Successful",
+      "success"
+    );
+  } catch (err) {
+    console.error("QZ Tray connection error:", err);
+    setQzConnection("disconnected");
+    showModal(
+      "Could not connect to QZ Tray. Please ensure it is installed and running.",
+      "Connection Error",
+      "error"
+    );
+  }
+}, [qzConnection]);
+
+
+
   useEffect(() => {
     connectToQz();
 
@@ -598,7 +663,7 @@ const ReceiptingPage = () => {
           </h2>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Receipt Form */}
+            
             <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
               <h3 className="text-xl font-semibold mb-6 text-gray-700 flex items-center">
                 <Settings className="w-5 h-5 mr-2" />
@@ -797,7 +862,7 @@ const ReceiptingPage = () => {
               </div>
             </div>
 
-            {/* Receipt Preview */}
+            
             <div className="bg-gray-50 p-8 rounded-xl shadow-inner">
               <h3 className="text-xl font-semibold mb-6 text-gray-700">
                 Receipt Preview
@@ -912,4 +977,8 @@ const Modal = ({ isOpen, title, message, type, onClose }) => {
   );
 };
 
+
+
+
 export default ReceiptingPage;
+
