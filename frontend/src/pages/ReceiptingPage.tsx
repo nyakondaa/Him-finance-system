@@ -1242,7 +1242,7 @@ const ReceiptingPage = () => {
         setQzConnection("connected");
         
         showModal(
-          `QZ Tray connected successfully! Found ${mockPrinters.length} printer(s).`,
+          `QZ Tray connected successfully! .`,
           "Connection Successful",
           "success"
         );
@@ -1495,7 +1495,7 @@ const ReceiptingPage = () => {
                           className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                           onClick={() => selectMember(member)}
                         >
-                          <div className="font-medium">{member.firstName}</div>
+                          <div className="font-medium">{`${member.firstName} ${member.lastName}`}</div>
                         </div>
                       ))}
                     </div>
