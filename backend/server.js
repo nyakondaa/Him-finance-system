@@ -695,7 +695,9 @@ async function generateUniqueCode(tx, table, prefix, length = 3, branchCode = nu
 
 // --- Initial Setup ---
 (async () => {
-    try {
+    try {      //QZ tray setup initialization
+        
+        
         await prisma.$connect();
         logger.info('Connected to PostgreSQL database via Prisma!');
 
