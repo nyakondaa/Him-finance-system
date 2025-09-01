@@ -509,11 +509,11 @@ const filteredUsers = Array.isArray(users)
                     !newUser.roleId ||
                     !newUser.branchCode) ||
                 passwordError ||
-                createUserMutation.isLoading ||
-                updateUserMutation.isLoading
+                createUserMutation.isPending ||
+                updateUserMutation.isPending
               }
             >
-              {createUserMutation.isLoading || updateUserMutation.isLoading ? (
+              {createUserMutation.isPending || updateUserMutation.isPending ? (
                 editingUser ? (
                   "Updating..."
                 ) : (
