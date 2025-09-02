@@ -17,6 +17,7 @@ const path = require('path');
 const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
+const { Console } = require('console');
 const ThermalPrinter = require('node-thermal-printer').printer;
 const PrinterTypes = require('node-thermal-printer').types;
 
@@ -1134,6 +1135,8 @@ app.post('/api/logout', authenticateToken, asyncHandler(async (req, res) => {
 // --- USER MANAGEMENT ROUTES ---
 
 // Create User
+
+/*
 app.post('/api/users', authenticateToken, checkPermission('users', 'create'), asyncHandler(async (req, res) => {
     const { error, value } = userCreateSchema.validate(req.body);
     if (error) throw new ValidationError(error.details[0].message);
@@ -1171,15 +1174,121 @@ app.post('/api/users', authenticateToken, checkPermission('users', 'create'), as
             roleId: true,
             branchCode: true,
             isActive: true,
-            createdAt: true
+           // createdAt: true
         }
     });
+
+    Console.log(`USER CREATED: ${newUser.username} by ${req.user.username}`);
 
     await logAudit(req.user.id, req.user.username, 'CREATE', 'users', newUser.id, null, newUser, req);
 
     res.status(201).json({
         message: 'User created successfully.',
         user: newUser,
+       
+    });
+}));
+
+*/
+
+app.post('/api/users', authenticateToken, checkPermission('users', 'create'), asyncHandler(async (req, res) => {
+    // Validate request body
+    const { error, value } = userCreateSchema.validate(req.body);
+    if (error) throw new ValidationError(error.details[0].message);
+
+    // Extract only allowed fields from request
+    const { 
+        username, 
+        password, 
+        roleId, 
+        branchCode, 
+        firstName, 
+        lastName, 
+        email, 
+        phoneNumber 
+    } = value;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({ 
+        where: { username } 
+    });
+    if (existingUser) throw new ConflictError('Username already exists.');
+
+    // Verify role and branch exist (multiple users can have same role - this is fine)
+    const [roleExists, branchExists] = await Promise.all([
+        prisma.role.findUnique({ 
+            where: { id: roleId },
+            select: { id: true, name: true } // Get role name for logging
+        }),
+        prisma.branch.findUnique({ 
+            where: { code: branchCode },
+            select: { code: true, name: true } // Get branch name for logging
+        })
+    ]);
+
+    if (!roleExists) throw new NotFoundError('Role not found.');
+    if (!branchExists) throw new NotFoundError('Branch not found.');
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+    
+    // Create user with only allowed fields
+    const newUser = await prisma.user.create({
+        data: {
+            username,
+            password_hash: hashedPassword,
+            roleId, // This is correct - multiple users can reference the same roleId
+            branchCode, // This is also correct - multiple users can be in same branch
+            firstName: firstName || null,
+            lastName: lastName || null,
+            email: email || null,
+            phoneNumber: phoneNumber || null,
+            createdBy: req.user.username,
+            isActive: true
+        },
+        select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            role: { // Include role details in response
+                select: {
+                    id: true,
+                    name: true
+                }
+            },
+            branch: { // Include branch details in response
+                select: {
+                    code: true,
+                    name: true
+                }
+            },
+            isActive: true,
+            createdAt: true,
+            createdBy: true
+        }
+    });
+
+    // Log the creation with role and branch info
+    console.log(`USER CREATED: ${newUser.username} (${roleExists.name}) at ${branchExists.name} by ${req.user.username}`);
+
+    // Audit log
+    await logAudit(
+        req.user.id, 
+        req.user.username, 
+        'CREATE', 
+        'users', 
+        newUser.id, 
+        null, 
+        newUser, 
+        req
+    );
+
+    res.status(201).json({
+        message: 'User created successfully.',
+        user: newUser
     });
 }));
 
@@ -1205,6 +1314,7 @@ app.get('/api/users', authenticateToken, checkPermission('users', 'read'), async
         ];
     }
 
+    
     const [users, total] = await Promise.all([
         prisma.user.findMany({
             where: whereClause,
@@ -3846,8 +3956,10 @@ app.all('{*any}', (req, res, next) => {
 });
 
 // --- START SERVER ---
-const server = app.listen(PORT, () => {
-    logger.info(`Church Finance Management Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  logger.info(
+    `Church Finance Management Server running at http://0.0.0.0:${PORT} in ${process.env.PORT} mode`
+  );
 });
 
 // Handle unhandled promise rejections
