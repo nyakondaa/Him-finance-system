@@ -152,7 +152,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
       resetUserForm();
     },
     onError: (err) =>
-      showModal(err.message || "Failed to create user.", "Error"),
+      showModal(err.message || "Failed to create user.",),
   });
 
   const updateUserMutation = useMutation<
@@ -236,17 +236,26 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
   };
 
   const handleCreateUser = () => {
-    const error = validatePassword(newUser.password);
-    if (error) {
-      setPasswordError(error);
-      return;
-    }
-    createUserMutation.mutate({
-      ...newUser,
-      roleId: parseInt(newUser.roleId),
-      createdBy: currentUser.username,
-    });
+  const error = validatePassword(newUser.password);
+  if (error) {
+    setPasswordError(error);
+    return;
+  }
+  
+  // 
+  const userData = {
+    username: newUser.username,
+    password: newUser.password,
+    roleId: parseInt(newUser.roleId),
+    branchCode: newUser.branchCode,
+    firstName: newUser.firstName,
+    lastName: newUser.lastName,
+    email: newUser.email,
+    phoneNumber: newUser.phoneNumber
   };
+  
+  createUserMutation.mutate(userData);
+};
 
   const handleUpdateUser = () => {
     const updateData = { ...editingUser };

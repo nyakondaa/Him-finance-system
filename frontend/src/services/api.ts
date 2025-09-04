@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 
-const BASE_URL = 'http://localhost:5000/api';
+
+const BASE_URL = import.meta.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 const apiClient = async (
     endpoint: string,
