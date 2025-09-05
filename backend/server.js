@@ -4023,6 +4023,30 @@ function getAvailablePrinters() {
 }
 
 
+function printToPrinter(printerName, text) {
+  return new Promise((resolve, reject) => {
+    let command;
+
+    if (process.platform === "linux" || process.platform === "darwin") {
+      // Linux/macOS -> use CUPS `lp`
+      command = `echo "${text}" | lp -d "${printerName}"`;
+    } else if (process.platform === "win32") {
+      // Windows -> use PowerShell Out-Printer
+      command = `powershell -Command "Write-Output '${text}' | Out-Printer -Name '${printerName}'"`;
+    } else {
+      return reject(new Error("Unsupported OS"));
+    }
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        return reject(new Error(stderr || error.message));
+      }
+      resolve(stdout || "Print job sent");
+    });
+  });
+}
+
+
 // Example usage in your API
 app.get("/api/printers", async (req, res) => {
   try {
@@ -4030,6 +4054,23 @@ app.get("/api/printers", async (req, res) => {
     res.status(200).json({ printers });
   } catch (err) {
     console.error("Error fetching printers:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.post("/api/print", async (req, res) => {
+  const { printer, text } = req.body;
+
+  if (!printer || !text) {
+    return res.status(400).json({ error: "Printer and text are required" });
+  }
+
+  try {
+    const result = await printToPrinter(printer, text);
+    res.status(200).json({ message: result });
+  } catch (err) {
+    console.error("Print error:", err);
     res.status(500).json({ error: err.message });
   }
 });
