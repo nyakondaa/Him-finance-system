@@ -1,4 +1,3 @@
-import { nanoid } from 'nanoid';
 
 
 const BASE_URL = import.meta.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
@@ -12,7 +11,8 @@ const apiClient = async (
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-    };
+    };    
+
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -42,6 +42,9 @@ const apiClient = async (
     }
 };
 
+//---- list printers
+export const listPrinters = () => apiClient('/printers',);
+
 // --- AUTHENTICATION ---
 export const login = (username: string, password: string) => apiClient('/login', 'POST', { username, password });
 export const logout = (refreshToken: string) => apiClient('/logout', 'POST', { refreshToken });
@@ -63,6 +66,15 @@ export const checkPermission = (user: { permissions: { [x: string]: string | any
     }
     return user.permissions[module].includes(action);
 };
+
+
+
+//printing 
+
+
+
+
+
 
 // --- ROLE MANAGEMENT ---
 export const getRoles = () => apiClient('/roles');

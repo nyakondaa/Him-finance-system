@@ -20,6 +20,14 @@ const nodemailer = require('nodemailer');
 const { Console } = require('console');
 const ThermalPrinter = require('node-thermal-printer').printer;
 const PrinterTypes = require('node-thermal-printer').types;
+const NodePrinter = require('node-printer');
+//const {getPrinters, printDirect} = require('printer');
+const { getPrinters } = require("pdf-to-printer");
+const { exec } = require("child_process");
+
+//import ptp from "pdf-to-printer";
+//import fs from "fs";
+//import path from "path";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -169,6 +177,10 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
     optionsSuccessStatus: 200,
+}));
+app.use(express.raw({
+  type: 'application/pdf',
+  limit: '50mb' // Adjust as needed
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -622,6 +634,28 @@ const printer = new ThermalPrinter({
   interface: 'usb',          // or 'tcp://IP_ADDRESS'
   options: { timeout: 5000 }
 });
+
+
+//printing from raw socket
+
+const net = require("net");
+
+function printRaw(printerIp, data) {
+  const client = net.connect({ port: 9100, host: printerIp }, () => {
+    console.log("Connected to printer");
+    client.write(data);   // Send raw data
+    client.end();
+  });
+
+  client.on("error", (err) => {
+    console.error("Printer connection error:", err);
+  });
+}
+
+// Example usage:
+printRaw("192.168.1.10", "Hello from Node.js!\n\n\n");
+
+
 
 async function generateReceiptNumber(type, branchCode, tx) {
     const currentYear = new Date().getFullYear();
@@ -3950,6 +3984,58 @@ app.use((err, req, res, next) => {
     });
 });
 
+
+
+
+
+/**
+ * Get a list of available printers on Linux (CUPS).
+ * Returns an array of printer names.
+ */
+
+function getAvailablePrinters() {
+  return new Promise((resolve, reject) => {
+    let command;
+
+    if (process.platform === "linux" || process.platform === "darwin") {
+      // Linux/macOS -> use CUPS
+      command = "lpstat -a";
+    } else if (process.platform === "win32") {
+      // Windows -> use PowerShell to get printer names
+      command = `powershell "Get-Printer | Select-Object -ExpandProperty Name"`;
+    } else {
+      return reject(new Error("Unsupported OS"));
+    }
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        return reject(new Error(stderr || error.message));
+      }
+
+      const printers = stdout
+        .split("\n")
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      resolve(printers);
+    });
+  });
+}
+
+
+// Example usage in your API
+app.get("/api/printers", async (req, res) => {
+  try {
+    const printers = await getAvailablePrinters();
+    res.status(200).json({ printers });
+  } catch (err) {
+    console.error("Error fetching printers:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
 // Catch all unhandled routes
 app.all('{*any}', (req, res, next) => {
     next(new NotFoundError(`Can't find ${req.originalUrl} on this server!`));
@@ -3966,7 +4052,8 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 process.on('unhandledRejection', (err) => {
     logger.fatal({ error: err, stack: err.stack }, 'UNHANDLED REJECTION! Shutting down...');
     server.close(() => {
-        process.exit(1);
+        process.exit(1);const { exec } = require("child_process");
+
     });
 });
 
