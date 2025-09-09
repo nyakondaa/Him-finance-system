@@ -892,6 +892,7 @@ async function generateUniqueCode(tx, table, prefix, length = 3, branchCode = nu
                     permissions: {
                         users: ['read'],
                         branches: ['read'],
+                        budgets: ['read'],
                         transactions: ['read', 'create'],
                         reports: ['read'],
                         revenue_heads: ['read'],
@@ -910,10 +911,60 @@ async function generateUniqueCode(tx, table, prefix, length = 3, branchCode = nu
                 skipDuplicates: true
             });
             logger.info('Standard roles initialized');
+
+            // Ensure required read permissions for non-admin roles (idempotent)
+            const rolesToEnsure = ['cashier', 'supervisor'];
+            const roles = await prisma.role.findMany({ where: { name: { in: rolesToEnsure } } });
+            for (const role of roles) {
+                const permissions = role.permissions || {};
+                permissions.currencies = Array.isArray(permissions.currencies) ? permissions.currencies : [];
+                permissions.payment_methods = Array.isArray(permissions.payment_methods) ? permissions.payment_methods : [];
+                let changed = false;
+                if (!permissions.currencies.includes('read')) {
+                    permissions.currencies.push('read');
+                    changed = true;
+                }
+                if (!permissions.payment_methods.includes('read')) {
+                    permissions.payment_methods.push('read');
+                    changed = true;
+                }
+                if (changed) {
+                    await prisma.role.update({ where: { id: role.id }, data: { permissions } });
+                    logger.info(`Updated role permissions for ${role.name}: added read on currencies/payment_methods`);
+                }
+            }
         }
     } catch (error) {
         logger.fatal({ error }, 'Failed to connect to DB or perform initial setup.');
         process.exit(1);
+    }
+})();
+
+// Ensure read permissions for currencies and payment_methods exist on every startup
+(async () => {
+    try {
+        const rolesToEnsure = ['cashier', 'supervisor'];
+        const roles = await prisma.role.findMany({ where: { name: { in: rolesToEnsure } } });
+        for (const role of roles) {
+            const permissions = role.permissions || {};
+            permissions.currencies = Array.isArray(permissions.currencies) ? permissions.currencies : [];
+            permissions.payment_methods = Array.isArray(permissions.payment_methods) ? permissions.payment_methods : [];
+            let changed = false;
+            if (!permissions.currencies.includes('read')) {
+                permissions.currencies.push('read');
+                changed = true;
+            }
+            if (!permissions.payment_methods.includes('read')) {
+                permissions.payment_methods.push('read');
+                changed = true;
+            }
+            if (changed) {
+                await prisma.role.update({ where: { id: role.id }, data: { permissions } });
+                logger.info(`Ensured read permissions for ${role.name} on currencies/payment_methods`);
+            }
+        }
+    } catch (e) {
+        logger.error({ e }, 'Failed to ensure read permissions on startup');
     }
 })();
 
