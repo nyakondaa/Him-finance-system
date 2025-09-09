@@ -1,5 +1,5 @@
 // src/pages/UserManagementPage.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   useQuery,
   useMutation,
@@ -120,6 +120,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [fechUsers, setFetchUsers] = useState([])
 
   // Fetch users
   const {
@@ -130,6 +131,26 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
   queryKey: ["users"],
   queryFn: getUsers,
 });
+
+
+console.log(`these are my users ${users}`)
+
+useEffect(() => {
+  
+  const fetchedUsers = async () => {
+    try {
+      const data = await getUsers();
+      setFetchUsers(data.users);
+      console.log("Fetched Users:", data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  }
+
+  fetchedUsers();
+
+  
+}, []);
 
   // Fetch branches
   const {
@@ -303,8 +324,10 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({
   // Filter users based on search term
  // Corrected Code
 // Use optional chaining to safely access 'users' and provide an empty array as a fallback.
-const filteredUsers = Array.isArray(users)
-  ? users.filter(
+
+
+const filteredUsers = Array.isArray(fechUsers)
+  ? fechUsers.filter(
       (user) =>
         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         `${user.firstName || ""} ${user.lastName || ""}`
@@ -342,7 +365,10 @@ const filteredUsers = Array.isArray(users)
         </p>
       </div>
     );
+    
   }
+
+  console.log(filteredUsers)
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
