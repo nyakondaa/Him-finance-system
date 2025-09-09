@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getRevenueHeads, getBranches, getMembers } from "@/services/api";
 import { listPrinters } from "@/services/api"; // Import the new API function
 import { printDocument } from "@/services/api"; // Import the new API function
+import useAuth from "@/hooks/useAuth";
 
 const ReceiptingPage = () => {
   // Form state
@@ -14,6 +15,8 @@ const ReceiptingPage = () => {
     paymentMethod: "Cash",
     branchCode: "",
   });
+
+  const currentUser = useAuth()
 
   // QZ Tray state
 
@@ -31,12 +34,11 @@ const [selectedPrinter, setSelectedPrinter] = useState<string>("");
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState(null);
   
-  // Mock user data
-  const [user, setUser] = useState({
-    username: "john.doe",
-    branchCode: "BR001"
-  });
+ 
+
+  //console.log("Current User:", currentUser.currentUser.username);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,6 +72,8 @@ const [selectedPrinter, setSelectedPrinter] = useState<string>("");
 
   // Fetch data from API
   useEffect(() => {
+    
+    setLoggedInUser(currentUser.currentUser.username || null );
     const fetchData = async () => {
       try {
         setIsLoading(true);
@@ -81,6 +85,7 @@ const [selectedPrinter, setSelectedPrinter] = useState<string>("");
         ]);
 
         setRevenueHeads(revenueData);
+        console.log("Revenue Heads loaded:", revenueData);
         setBranches(branchesData);
 
         // Ensure membersData is an array
@@ -155,10 +160,15 @@ useEffect(() => {
 
 const handleGenerateReceipt = async () => {
   if (!isFormComplete) return showModal("Please fill in all required fields.", "Validation Error", "error");
-  if (!user) return showModal("User information not found. Please login again.", "Authentication Error", "error");
+  if (!loggedInUser) return showModal("User information not found. Please login again.", "Authentication Error", "error");
   if (!selectedPrinter) return showModal("Please select a printer first.", "Printing Error", "error");
 
-  setIsPrinting(true);
+  const revenueHead = revenueHeads.find(r => r.code === receipt.revenueHeadCode);
+  const revenueHeadName = revenueHead ? revenueHead.name : receipt.revenueHeadCode;
+  
+
+
+  setIsPrinting(true);  
 
   try {
     const transactionData = {
@@ -168,7 +178,7 @@ const handleGenerateReceipt = async () => {
       currency: receipt.currency,
       paymentMethod: receipt.paymentMethod,
       branchCode: receipt.branchCode,
-      operatorName: user.username,
+      operatorName: loggedInUser || "Unknown Operator",
       receiptNumber: "RC" + Math.floor(100000 + Math.random() * 900000),
       transactionDate: new Date().toISOString(),
     };
@@ -180,14 +190,17 @@ const handleGenerateReceipt = async () => {
 ========================================
 Receipt #: ${transactionData.receiptNumber}
 Payer     : ${transactionData.payerName}
-Revenue   : ${transactionData.revenueHeadCode}
+Revenue   : ${revenueHeadName}
 Amount    : ${transactionData.currency} ${transactionData.amount.toFixed(2)}
 Payment   : ${transactionData.paymentMethod}
 Branch    : ${transactionData.branchCode}
 Operator  : ${transactionData.operatorName}
 Date      : ${new Date(transactionData.transactionDate).toLocaleString()}
 ========================================
-       Thank you for your contribution!
+
+       Thank you for your support!
+       May God bless you abundantly.
+
 ========================================
 `;
 
@@ -489,7 +502,7 @@ Date      : ${new Date(transactionData.transactionDate).toLocaleString()}
                   <div className="space-y-1 mb-4 text-gray-700 text-xs">
                     <div className="flex justify-between">
                       <strong>Receipt #:</strong>
-                      <span>PREVIEW</span>
+                      <span>{"RC" + Math.floor(100000 + Math.random() * 900000)}</span>
                     </div>
                     <div className="flex justify-between">
                       <strong>Date:</strong>
@@ -529,7 +542,7 @@ Date      : ${new Date(transactionData.transactionDate).toLocaleString()}
                   <div className="text-center text-xs text-gray-500">
                     <p>Thank you for your contribution!</p>
                     <p className="mt-1">
-                      Operator: {user?.username || "Current User"}
+                      Operator: {loggedInUser || "Current User"}
                     </p>
                     <p className="mt-1">
                       Printed: {new Date().toLocaleString()}
