@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getRevenueHeads, getBranches, getMembers } from "@/services/api";
 import { listPrinters } from "@/services/api"; // Import the new API function
+import { printDocument } from "@/services/api"; // Import the new API function
 
 const ReceiptingPage = () => {
   // Form state
@@ -15,9 +16,9 @@ const ReceiptingPage = () => {
   });
 
   // QZ Tray state
-  const [qzConnection, setQzConnection] = useState("disconnected");
-  const [qzPrinters, setQzPrinters] = useState([]);
-  const [selectedPrinter, setSelectedPrinter] = useState("");
+
+const [printers, setPrinters] = useState<string[]>([]);
+const [selectedPrinter, setSelectedPrinter] = useState<string>("");
   const [isPrinting, setIsPrinting] = useState(false);
   const [connectionAttempt, setConnectionAttempt] = useState(null);
 
@@ -120,106 +121,22 @@ const ReceiptingPage = () => {
   }, [searchTerm, members]);
 
 
-// fecth avialable printers
- useEffect(() => {
+// fetch available printers
+useEffect(() => {
   const fetchPrinters = async () => {
     try {
-      const printersData = await listPrinters();
-      if (printersData && Array.isArray(printersData.printers)) {
-        const printerNames = printersData.printers; // ✅ already strings
-        setQzPrinters(printerNames);
-        console.log("Available Printers:", printerNames);
-      } else {
-        console.error("Invalid printers data:", printersData);
-        setQzPrinters([]);
-      }
+      const list = await listPrinters();
+      setPrinters(list);
+      const ipp = list.find((p) => /-IPP$/i.test(p));
+      setSelectedPrinter(ipp || list[0] || "");
     } catch (err) {
       console.error("Failed to fetch printers:", err);
+      showModal("Failed to fetch printers", "Error", "error");
     }
   };
-
   fetchPrinters();
 }, []);
 
-
-
-
-  // QZ Tray connection function
-  const connectToQz = useCallback(async () => {
-    if (qzConnection === "connecting" || qzConnection === "connected") {
-      return;
-    }
-
-    setQzConnection("connecting");
-
-    try {
-      // Set timeout for connection attempt
-      const timeout = setTimeout(() => {
-        setQzConnection("disconnected");
-        showModal(
-          "Connection to QZ Tray timed out. Please ensure QZ Tray is running and try again.",
-          "Connection Timeout",
-          "error"
-        );
-      }, 5000);
-
-      setConnectionAttempt(timeout);
-
-      // Simulate QZ Tray connection
-      setTimeout(() => {
-        clearTimeout(timeout);
-        setConnectionAttempt(null);     
-          
-      
-        
-        setQzConnection("connected");
-        
-        showModal(
-          `QZ Tray connected successfully! .`,
-          "Connection Successful",
-          "success"
-        );
-      }, 2000);
-    } catch (err) {
-      console.error("QZ Tray connection error:", err);
-      setQzConnection("disconnected");
-
-      if (connectionAttempt) {
-        clearTimeout(connectionAttempt);
-        setConnectionAttempt(null);
-      }
-
-      showModal(
-        "Could not connect to QZ Tray. Please ensure QZ Tray is running and try again.",
-        "Connection Error",
-        "error"
-      );
-    }
-  }, [qzConnection, connectionAttempt]);
-
-  // Initialize QZ connection on component mount
-  useEffect(() => {
-    // Only attempt to connect if QZ is available (simulated)
-    const isQzAvailable = true;
-    
-    if (isQzAvailable) {
-      connectToQz();
-    }
-
-    return () => {
-      if (connectionAttempt) {
-        clearTimeout(connectionAttempt);
-      }
-    };
-  }, []);
-
-  // Helper functions
-  const showModal = (message, title, type = "info") => {
-    setModalContent({ title, message, type });
-    setIsModalOpen(true);
-  };
-
-  // Handle member search
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setShowMemberDropdown(true);
@@ -232,105 +149,72 @@ const ReceiptingPage = () => {
     setShowMemberDropdown(false);
   };
 
-  // Print receipt function
-  const printReceipt = async (receiptData) => {
-    if (qzConnection !== "connected") {
-      showModal(
-        "QZ Tray is not connected. Please connect to QZ Tray first.",
-        "Printing Error",
-        "error"
-      );
-      return;
-    }
-
-    if (!selectedPrinter) {
-      showModal("Please select a printer.", "Printing Error", "error");
-      return;
-    }
-
-    setIsPrinting(true);
-
-    try {
-      // Simulate printing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      showModal(
-        `Receipt printed successfully to ${selectedPrinter}!`,
-        "Success",
-        "success"
-      );
-    } catch (err) {
-      console.error("Printing error:", err);
-      showModal(
-        "Failed to print receipt. Please check printer connection and try again.",
-        "Printing Error",
-        "error"
-      );
-    } finally {
-      setIsPrinting(false);
-    }
-  };
 
   // Handle form submission and transaction creation
-  const handleGenerateReceipt = async () => {
-    if (!isFormComplete) {
-      showModal(
-        "Please fill in all required fields.",
-        "Validation Error",
-        "error"
-      );
-      return;
-    }
+// <-- make sure this matches your api.ts
 
-    if (!user) {
-      showModal(
-        "User information not found. Please login again.",
-        "Authentication Error",
-        "error"
-      );
-      return;
-    }
+const handleGenerateReceipt = async () => {
+  if (!isFormComplete) return showModal("Please fill in all required fields.", "Validation Error", "error");
+  if (!user) return showModal("User information not found. Please login again.", "Authentication Error", "error");
+  if (!selectedPrinter) return showModal("Please select a printer first.", "Printing Error", "error");
 
-    setIsPrinting(true);
+  setIsPrinting(true);
 
-    try {
-      // Prepare transaction data
-      const transactionData = {
-        payerName: receipt.payerName.trim(),
-        revenueHeadCode: receipt.revenueHeadCode,
-        amount: parseFloat(receipt.amount),
-        currency: receipt.currency,
-        paymentMethod: receipt.paymentMethod,
-        branchCode: receipt.branchCode,
-        operatorName: user.username,
-        receiptNumber: "RC" + Math.floor(100000 + Math.random() * 900000),
-        transactionDate: new Date().toISOString(),
-      };
+  try {
+    const transactionData = {
+      payerName: receipt.payerName.trim(),
+      revenueHeadCode: receipt.revenueHeadCode,
+      amount: parseFloat(receipt.amount),
+      currency: receipt.currency,
+      paymentMethod: receipt.paymentMethod,
+      branchCode: receipt.branchCode,
+      operatorName: user.username,
+      receiptNumber: "RC" + Math.floor(100000 + Math.random() * 900000),
+      transactionDate: new Date().toISOString(),
+    };
 
-      // Print the receipt
-      await printReceipt(transactionData);
+    // Generate receipt text  
+        const receiptText = `
+========================================
+           HIM Finance System
+========================================
+Receipt #: ${transactionData.receiptNumber}
+Payer     : ${transactionData.payerName}
+Revenue   : ${transactionData.revenueHeadCode}
+Amount    : ${transactionData.currency} ${transactionData.amount.toFixed(2)}
+Payment   : ${transactionData.paymentMethod}
+Branch    : ${transactionData.branchCode}
+Operator  : ${transactionData.operatorName}
+Date      : ${new Date(transactionData.transactionDate).toLocaleString()}
+========================================
+       Thank you for your contribution!
+========================================
+`;
 
-      // Reset form after successful submission
-      setReceipt({
-        payerName: "",
-        revenueHeadCode: "",
-        amount: "",
-        currency: "USD",
-        paymentMethod: "Cash",
-        branchCode: user?.branchCode || "",
-      });
-      setSearchTerm("");
-    } catch (err) {
-      console.error("Error creating transaction:", err);
-      showModal(
-        err.message || "Failed to create transaction and generate receipt.",
-        "Transaction Error",
-        "error"
-      );
-    } finally {
-      setIsPrinting(false);
-    }
-  };
+
+    const message = await printDocument(selectedPrinter, receiptText, 1);
+
+    showModal(message || "Receipt printed successfully!", "Success", "success");
+
+    setReceipt({
+      payerName: "",
+      revenueHeadCode: "",
+      amount: "",
+      currency: "USD",
+      paymentMethod: "Cash",
+      branchCode: user?.branchCode || "",
+    });
+    setSearchTerm("");
+  } catch (err: any) {
+    console.error("Error printing receipt:", err);
+    showModal(err.message || "Failed to print receipt.", "Printing Error", "error");
+  } finally {
+    setIsPrinting(false);
+  }
+};
+
+
+
 
   // Filter revenue heads based on selected branch
   const availableRevenueHeads = receipt.branchCode
@@ -547,52 +431,18 @@ const ReceiptingPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Printer *
                   </label>
-                  <select
-                    value={selectedPrinter}
-                    onChange={(e) => setSelectedPrinter(e.target.value)}
-                    className="w-full border border-gray-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200"
-                    disabled={qzConnection !== "connected"}
-                  >
-                    <option value="">Select Printer</option>
-                    {qzPrinters.map((printer) => (
-                      <option key={printer} value={printer}>
-                        {printer}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-2 text-sm">
-                    <div className="flex items-center">
-                      <div
-                        className={`w-3 h-3 rounded-full mr-2 ${
-                          qzConnection === "connected"
-                            ? "bg-green-500"
-                            : qzConnection === "connecting"
-                            ? "bg-yellow-500"
-                            : "bg-red-500"
-                        }`}
-                      ></div>
-                      <span>
-                        QZ Tray:{" "}
-                        {qzConnection === "connected"
-                          ? "Connected"
-                          : qzConnection === "connecting"
-                          ? "Connecting..."
-                          : "Disconnected"}
-                      </span>
-                    </div>
-                    <button
-                      onClick={connectToQz}
-                      disabled={qzConnection === "connecting"}
-                      className="text-sm text-blue-500 hover:text-blue-700 disabled:text-gray-400 mt-1 flex items-center"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                      </svg>
-                      {qzConnection === "connecting"
-                        ? "Connecting..."
-                        : "Reconnect"}
-                    </button>
-                  </div>
+                 <select
+                  value={selectedPrinter}
+                  onChange={(e) => setSelectedPrinter(e.target.value)}
+                  className="w-full border border-gray-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200"
+                 >
+                  <option value="">Select printer</option>
+                  {printers.map((printer) => (
+                    <option key={printer} value={printer}>{printer}</option>
+                  ))}
+                </select>
+
+                 
                 </div>
 
                 <button

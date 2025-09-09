@@ -13,17 +13,18 @@ const pino = require('pino');
 const pinoHttp = require('pino-http');
 const ms = require('ms');
 const fs = require('fs');
-const path = require('path');
+
 const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
-const { Console } = require('console');
-const ThermalPrinter = require('node-thermal-printer').printer;
-const PrinterTypes = require('node-thermal-printer').types;
-const NodePrinter = require('node-printer');
-//const {getPrinters, printDirect} = require('printer');
-const { getPrinters } = require("pdf-to-printer");
+
 const { exec } = require("child_process");
+const os = require('os');
+const path = require('path');
+
+
+const PDFDocument = require('pdfkit');
+
 
 //import ptp from "pdf-to-printer";
 //import fs from "fs";
@@ -64,6 +65,7 @@ const EMAIL_SERVICE = process.env.EMAIL_SERVICE || "";
 const EMAIL_USER = process.env.EMAIL_USER || "";
 const EMAIL_PASS = process.env.EMAIL_PASS || "";
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "";
+const USE_PDF_PRINT = (process.env.USE_PDF_PRINT || 'false').toLowerCase() === 'true';
 
 // Default Admin Configuration
 const DEFAULT_ADMIN_USERNAME = process.env.DEFAULT_ADMIN_USERNAME || "";
@@ -629,33 +631,6 @@ function calculateAgeCategory(dateOfBirth) {
 }
 
 
-const printer = new ThermalPrinter({
-  type: PrinterTypes.EPSON,  // Epson or Star
-  interface: 'usb',          // or 'tcp://IP_ADDRESS'
-  options: { timeout: 5000 }
-});
-
-
-//printing from raw socket
-
-const net = require("net");
-
-function printRaw(printerIp, data) {
-  const client = net.connect({ port: 9100, host: printerIp }, () => {
-    console.log("Connected to printer");
-    client.write(data);   // Send raw data
-    client.end();
-  });
-
-  client.on("error", (err) => {
-    console.error("Printer connection error:", err);
-  });
-}
-
-// Example usage:
-printRaw("192.168.1.10", "Hello from Node.js!\n\n\n");
-
-
 
 async function generateReceiptNumber(type, branchCode, tx) {
     const currentYear = new Date().getFullYear();
@@ -1166,64 +1141,6 @@ app.post('/api/logout', authenticateToken, asyncHandler(async (req, res) => {
     res.status(200).json({ message: 'Logged out successfully.' });
 }));
 
-// --- USER MANAGEMENT ROUTES ---
-
-// Create User
-
-/*
-app.post('/api/users', authenticateToken, checkPermission('users', 'create'), asyncHandler(async (req, res) => {
-    const { error, value } = userCreateSchema.validate(req.body);
-    if (error) throw new ValidationError(error.details[0].message);
-
-    const { username, password, roleId, branchCode } = value;
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({ where: { username } });
-    if (existingUser) throw new ConflictError('Username already exists.');
-
-    // Verify role and branch exist
-    const [roleExists, branchExists] = await Promise.all([
-        prisma.role.findUnique({ where: { id: roleId } }),
-        prisma.branch.findUnique({ where: { code: branchCode } })
-    ]);
-
-    if (!roleExists) throw new NotFoundError('Role not found.');
-    if (!branchExists) throw new NotFoundError('Branch not found.');
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const newUser = await prisma.user.create({
-        data: {
-            ...value,
-            password_hash: hashedPassword,
-            createdBy: req.user.username,
-            isActive: true
-        },
-        select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phoneNumber: true,
-            roleId: true,
-            branchCode: true,
-            isActive: true,
-           // createdAt: true
-        }
-    });
-
-    Console.log(`USER CREATED: ${newUser.username} by ${req.user.username}`);
-
-    await logAudit(req.user.id, req.user.username, 'CREATE', 'users', newUser.id, null, newUser, req);
-
-    res.status(201).json({
-        message: 'User created successfully.',
-        user: newUser,
-       
-    });
-}));
-
-*/
 
 app.post('/api/users', authenticateToken, checkPermission('users', 'create'), asyncHandler(async (req, res) => {
     // Validate request body
@@ -4012,10 +3929,21 @@ function getAvailablePrinters() {
         return reject(new Error(stderr || error.message));
       }
 
-      const printers = stdout
-        .split("\n")
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+      let printers;
+      if (process.platform === "linux" || process.platform === "darwin") {
+        // Parse lines like: "HP_LaserJet_Pro_... accepting requests since ..."
+        printers = stdout
+          .split("\n")
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+          .map(line => line.split(/\s+/)[0])
+          .filter(Boolean);
+      } else {
+        printers = stdout
+          .split("\n")
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+      }
 
       resolve(printers);
     });
@@ -4023,57 +3951,157 @@ function getAvailablePrinters() {
 }
 
 
-function printToPrinter(printerName, text) {
-  return new Promise((resolve, reject) => {
-    let command;
 
-    if (process.platform === "linux" || process.platform === "darwin") {
-      // Linux/macOS -> use CUPS `lp`
-      command = `echo "${text}" | lp -d "${printerName}"`;
-    } else if (process.platform === "win32") {
-      // Windows -> use PowerShell Out-Printer
-      command = `powershell -Command "Write-Output '${text}' | Out-Printer -Name '${printerName}'"`;
-    } else {
-      return reject(new Error("Unsupported OS"));
+function printToPrinter(printerName, text, copies = 1) {
+  return new Promise((resolve, reject) => {
+    if (!printerName || !text) {
+      return reject(new Error("Printer name and text are required."));
     }
 
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        return reject(new Error(stderr || error.message));
+    const platform = process.platform;
+
+    if (platform === "linux" || platform === "darwin") {
+      // Linux/macOS: write to temp file and send to printer using lp
+      const safeText = (typeof text === "string" ? text : String(text));
+      const contentToPrint = safeText.length === 0 ? "\n" : (safeText.endsWith("\n") ? safeText : `${safeText}\n`);
+
+      if (USE_PDF_PRINT) {
+        // Render text as a simple PDF for printers expecting PDF/PCL (e.g., Xerox VersaLink)
+        const tempPdf = path.join(os.tmpdir(), `receipt_${Date.now()}.pdf`);
+
+        const renderPdf = () => new Promise((res, rej) => {
+          try {
+            const doc = new PDFDocument({ size: 'A4', margin: 36 });
+            const stream = fs.createWriteStream(tempPdf);
+            doc.pipe(stream);
+            doc.font('Courier');
+            doc.fontSize(10);
+
+            const lines = contentToPrint.split(/\r?\n/);
+            lines.forEach((line) => {
+              doc.text(line.length > 0 ? line : ' ');
+            });
+
+            doc.end();
+            stream.on('finish', res);
+            stream.on('error', rej);
+          } catch (e) {
+            rej(e);
+          }
+        });
+
+        renderPdf().then(() => {
+          const copiesOpt = Math.max(1, parseInt(copies, 10) || 1);
+          const command = `lp -d "${printerName}" -n ${copiesOpt} "${tempPdf}"`;
+          exec(command, (error, stdout, stderr) => {
+            fs.unlink(tempPdf, (unlinkErr) => {
+              if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
+            });
+            if (error) return reject(new Error(stderr || error.message));
+            resolve("Print job sent successfully.");
+          });
+        }).catch((e) => reject(new Error(`Failed to render PDF: ${e.message}`)));
+      } else {
+        const tempFile = path.join(os.tmpdir(), `receipt_${Date.now()}.txt`);
+        fs.writeFile(tempFile, contentToPrint, { encoding: "utf8" }, (err) => {
+          if (err) return reject(new Error(`Failed to create temp file: ${err.message}`));
+          // Use raw mode to avoid unwanted filtering converting text to blank pages
+          const copiesOpt = Math.max(1, parseInt(copies, 10) || 1);
+          const command = `lp -o raw -d "${printerName}" -n ${copiesOpt} "${tempFile}"`;
+          exec(command, (error, stdout, stderr) => {
+            fs.unlink(tempFile, (unlinkErr) => {
+              if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
+            });
+            if (error) return reject(new Error(stderr || error.message));
+            resolve("Print job sent successfully.");
+          });
+        });
       }
-      resolve(stdout || "Print job sent");
-    });
+    } else if (platform === "win32") {
+      // Windows: write text to temp file and print using notepad
+      const tempFile = path.join(os.tmpdir(), `receipt_${Date.now()}.txt`);
+      fs.writeFile(tempFile, text, { encoding: "utf8" }, (err) => {
+        if (err) return reject(new Error(`Failed to create temp file: ${err.message}`));
+
+        const totalCopies = Math.max(1, parseInt(copies, 10) || 1);
+        let printed = 0;
+
+        const printOnce = () => {
+          const command = `start /wait notepad /p "${tempFile}"`;
+          exec(command, (error, stdout, stderr) => {
+            if (error) return reject(new Error(stderr || error.message));
+            printed += 1;
+            if (printed < totalCopies) {
+              printOnce();
+            } else {
+              fs.unlink(tempFile, (unlinkErr) => {
+                if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
+              });
+              resolve("Print job sent successfully.");
+            }
+          });
+        };
+
+        printOnce();
+      });
+    } else {
+      reject(new Error("Unsupported OS for printing."));
+    }
   });
 }
 
 
-// Example usage in your API
-app.get("/api/printers", async (req, res) => {
-  try {
-    const printers = await getAvailablePrinters();
-    res.status(200).json({ printers });
-  } catch (err) {
-    console.error("Error fetching printers:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
 app.post("/api/print", async (req, res) => {
-  const { printer, text } = req.body;
+  const { printer, text, copies } = req.body;
 
-  if (!printer || !text) {
-    return res.status(400).json({ error: "Printer and text are required" });
+  if (!printer) {
+    return res.status(400).json({ error: "Printer is required" });
   }
 
+  const safeText = typeof text === 'string' ? text : (text == null ? '' : String(text));
+  if (safeText.trim().length === 0) {
+    return res.status(400).json({ error: "Text is empty" });
+  }
+
+  const copiesOpt = Math.max(1, parseInt(copies, 10) || 1);
+
   try {
-    const result = await printToPrinter(printer, text);
+    console.log("Printing to:", printer);
+    console.log("Text length:", safeText.length);
+    console.log("Copies:", copiesOpt);
+    const result = await printToPrinter(printer, safeText, copiesOpt);
     res.status(200).json({ message: result });
   } catch (err) {
     console.error("Print error:", err);
     res.status(500).json({ error: err.message });
   }
 });
+
+
+// List available printers (sanitized)
+app.get('/api/printers', async (req, res) => {
+  try {
+    const printers = await getAvailablePrinters();
+    // Sanitize lines like "name accepting requests since ..." -> just name
+    const sanitized = printers.map((p) => (p || '').toString().trim().split(/\s+/)[0]).filter(Boolean);
+    // Prefer IPP queues first
+    sanitized.sort((a, b) => {
+      const aIpp = /-IPP$/i.test(a);
+      const bIpp = /-IPP$/i.test(b);
+      if (aIpp === bIpp) return a.localeCompare(b);
+      return aIpp ? -1 : 1;
+    });
+    res.json({ printers: sanitized });
+  } catch (e) {
+    console.error('Failed to list printers:', e);
+    res.status(500).json({ error: 'Failed to list printers' });
+  }
+});
+
+
+
+
+
 
 
 

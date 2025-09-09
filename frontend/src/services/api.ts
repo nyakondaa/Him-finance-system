@@ -43,7 +43,30 @@ const apiClient = async (
 };
 
 //---- list printers
-export const listPrinters = () => apiClient('/printers',);
+// Fetch list of printers from backend
+export const listPrinters = async () => {
+  const data = await apiClient('/printers');
+  const list: string[] = data.printers || [];
+  // Fallback sanitize in case backend returns verbose lines
+  const sanitized = list.map((p) => (p || '').toString().trim().split(/\s+/)[0]).filter(Boolean);
+  // Prefer IPP queues first
+  sanitized.sort((a, b) => {
+    const aIpp = /-IPP$/i.test(a);
+    const bIpp = /-IPP$/i.test(b);
+    if (aIpp === bIpp) return a.localeCompare(b);
+    return aIpp ? -1 : 1;
+  });
+  return sanitized;
+};
+
+// Send text to a selected printer
+export const printDocument = async (printerName: string, text: string, copies: number = 1) => {
+  if (!printerName || !text) throw new Error("Printer and text are required");
+  const n = Math.max(1, parseInt(String(copies), 10) || 1);
+  const data = await apiClient('/print', 'POST', { printer: printerName, text, copies: n });
+  return data.message;
+};
+
 
 // --- AUTHENTICATION ---
 export const login = (username: string, password: string) => apiClient('/login', 'POST', { username, password });
@@ -70,11 +93,6 @@ export const checkPermission = (user: { permissions: { [x: string]: string | any
 
 
 //printing 
-
-
-
-
-
 
 // --- ROLE MANAGEMENT ---
 export const getRoles = () => apiClient('/roles');
