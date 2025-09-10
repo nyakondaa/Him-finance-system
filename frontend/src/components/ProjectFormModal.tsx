@@ -27,6 +27,14 @@ const ProjectFormModal = ({ project, onClose, onCreate, onUpdate, isLoading }) =
         queryFn: getCurrencies
     });
 
+
+    
+
+    useEffect(() => {
+        console.log('branches:', branches);
+        console.log('currencies:', currencies);
+      }, []);
+
     // Initialize form with project data if editing
     useEffect(() => {
         if (project) {
@@ -41,6 +49,9 @@ const ProjectFormModal = ({ project, onClose, onCreate, onUpdate, isLoading }) =
                 isActive: project.isActive
             });
         }
+        console.log(branches)
+        console.log(currencies)
+        console.log(branches)
     }, [project]);
 
     const handleChange = (e) => {

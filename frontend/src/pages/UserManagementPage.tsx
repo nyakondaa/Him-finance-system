@@ -37,6 +37,7 @@ import {
 } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import useAuth from "../hooks/useAuth";
+import { data } from "react-router-dom";
 
 // Predefined system roles with their permissions
 const SYSTEM_ROLES = [
@@ -150,7 +151,7 @@ useEffect(() => {
   fetchedUsers();
 
   
-}, []);
+}, [data]);
 
   // Fetch branches
   const {

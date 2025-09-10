@@ -19,10 +19,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
         return <Navigate to="/login" replace />; // Redirect to login if not authenticated
     }
 
-    // If roles are specified, check if the user has one of the allowed roles
-    if (allowedRoles && !allowedRoles.includes(currentUser?.role)) {
+    // If roles are specified, check if the user has one of the allowed roles (case/space-insensitive)
+    if (allowedRoles) {
+        const normalizedAllowed = allowedRoles.map((r) => (r || '').toString().trim().toLowerCase());
+        const userRole = (currentUser?.role || '').toString().trim().toLowerCase();
+        if (!normalizedAllowed.includes(userRole)) {
         // Optionally, navigate to an unauthorized page or display a message
-        return <Navigate to="/unauthorized" replace />; // You might create an UnauthorizedPage
+            return <Navigate to="/unauthorized" replace />; // You might create an UnauthorizedPage
+        }
     }
 
     return <Outlet />; // Render child routes if authenticated and authorized

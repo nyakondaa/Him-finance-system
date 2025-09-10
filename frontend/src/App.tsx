@@ -31,7 +31,7 @@ export default function App() {
                 <Route path="/login" element={<LoginPage />} />
 
                 {/* Protected Routes */}
-                <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "user"]} />}>
+                <Route path="/" element={<ProtectedRoute allowedRoles={["admin", "user", "cashier", "supervisor"]} />}>
                     <Route path="/" element={<DashboardLayout />}>
                         <Route index element={<DashboardPage showModal={showModal} />} />
                         <Route path="users" element={<UserManagementPage showModal={showModal} />} />
@@ -44,7 +44,7 @@ export default function App() {
                         <Route path="reports" element={<ReportsPage showModal={showModal} />} />
                         <Route path="settings" element={<SystemSettingsPage showModal={showModal} />} />
                         <Route path="payment-management" element={<CurrencyManagementPage showModal={showModal} />} />
-                        <Route path="exchange-rates" element={<ExchangeRatePage showModal={showModal} />} />
+                        {/*<Route path="exchange-rates" element={<ExchangeRatePage showModal={showModal} />} />*/}
                     </Route>
                 </Route>
 

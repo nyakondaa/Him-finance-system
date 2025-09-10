@@ -80,7 +80,7 @@ const Navbar = () => {
         { to: "/expenditure-heads", icon: <Banknote className="w-5 h-5" />, text: "Expenditure Heads" },
         { to: "/members", icon: <User className="w-5 h-5" />, text: "Members" },
         { to: "/payment-management", icon: <CreditCard className="w-5 h-5" />, text: "Payment Management" },
-        { to: "/exchange-rates", icon: <TrendingUp className="w-5 h-5" />, text: "Exchange Rates" },
+        
         { to: "/project-board", icon: <Trello className="w-5 h-5" />, text: "Project Board" },
         { to: "/settings", icon: <Settings className="w-5 h-5" />, text: "System Settings" },
         

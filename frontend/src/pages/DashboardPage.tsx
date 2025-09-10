@@ -70,11 +70,13 @@ import {
 import useAuth from "../hooks/useAuth";
 
 const Dashboard = ({ showModal }) => {
-  const { currentUser } = useAuth();
+  
   const [selectedPeriod, setSelectedPeriod] = useState("today");
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
   const [isDefaultCurrency, setIsDefaultCurrency] = useState(false);
   const [viewMode, setViewMode] = useState("overview");
+
+ 
 
   // Load default currency from local storage on component mount
   useEffect(() => {
@@ -167,23 +169,28 @@ const Dashboard = ({ showModal }) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const {
+
+const {userPermissions, isLoading: authLoading } = useAuth();
+const hasPermission = (resource, action) => {
+  return userPermissions && userPermissions[resource]?.includes(action);
+};
+// The key change: add permissions to the queryKey
+const {
     data: currenciesData,
     isLoading: loadingCurrencies,
     isError: isErrorCurrencies,
     error: currenciesError,
-  } = useQuery({
-    queryKey: ["currencies"],
+} = useQuery({
+    queryKey: ["currencies", userPermissions],
     queryFn: getCurrencies,
+    // The enabled check is still necessary
+    enabled: hasPermission('currencies', 'read') && !authLoading,
     onError: (err) => {
-      console.error("Failed to load currencies:", err);
-      if (showModal) {
-        showModal(err.message || "Failed to load currencies.", "Error");
-      }
+        console.error("Failed to load currencies:", err);
     },
     retry: 2,
-    staleTime: 60 * 60 * 1000, // 1 hour cache for currencies
-  });
+    staleTime: 60 * 60 * 1000,
+});
 
   const {
     data: paymentMethodsData,
